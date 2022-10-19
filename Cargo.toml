@@ -3,3 +3,9 @@ members = [
     "helixlauncher",
     "libhelix",
 ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/HelixLauncher/HelixLauncher"
+license = "MPL-2.0"
