@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::thread;
 use std::time::Duration;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
@@ -31,14 +31,14 @@ impl MinecraftAuthenticator {
 		MinecraftAuthenticator { client_id: client_id.to_string(), reqwest_client: Client::new() }
 	}
 
-	pub fn authenticate(self, display_code: fn(DeviceCodeResponse)) -> Result<Account, MinecraftAuthenticatorError> {
+	pub async fn authenticate(self, display_code: fn(DeviceCodeResponse)) -> Result<Account, MinecraftAuthenticatorError> {
 		let device_code_response: DeviceCodeResponse = self.reqwest_client
 			.get("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
 			.form(&vec![
 				("client_id", self.client_id.as_str()),
 				("scope", "XboxLive.signin")
 			])
-			.send()?.json()?;
+			.send().await?.json().await?;
 
 		display_code(device_code_response.clone());
 
@@ -52,11 +52,11 @@ impl MinecraftAuthenticator {
 					("device_code", device_code_response.device_code.as_str()),
 					("grant_type", &"urn:ietf:params:oauth:grant-type:device_code")
 				])
-				.send()?;
+				.send().await?;
 
 			match poll_response.status().as_u16() {
 				200 => {
-					let poll_success: PollSuccessResponse = poll_response.json()?;
+					let poll_success: PollSuccessResponse = poll_response.json().await?;
 
 					let xbox_live_response: XboxLiveResponse = self.reqwest_client
 						.post("https://user.auth.xboxlive.com/user/authenticate")
@@ -69,7 +69,7 @@ impl MinecraftAuthenticator {
 							"RelyingParty": "http://auth.xboxlive.com",
 							"TokenType": "JWT"
 						}))
-						.send()?.json()?;
+						.send().await?.json().await?;
 
 					// Reuse the struct here, the response is laid out the same
 					let xsts_response: XboxLiveResponse = self.reqwest_client
@@ -82,7 +82,7 @@ impl MinecraftAuthenticator {
 							"RelyingParty": "rp://api.minecraftservices.com/",
 							"TokenType": "JWT"
 						}))
-						.send()?.json()?;
+						.send().await?.json().await?;
 
 					let minecraft_response: MinecraftResponse = self.reqwest_client
 						.post("https://api.minecraftservices.com/authentication/login_with_xbox")
@@ -93,12 +93,12 @@ impl MinecraftAuthenticator {
 								xsts_response.token
 							)
 						}))
-						.send()?.json()?;
+						.send().await?.json().await?;
 
 					let profile_response: ProfileResponse = self.reqwest_client
 						.get("https://api.minecraftservices.com/minecraft/profile")
 						.header("Authorization", format!("Bearer {}", minecraft_response.access_token))
-						.send()?.json()?;
+						.send().await?.json().await?;
 
 					return Ok(Account {
 						uuid: profile_response.id,
@@ -107,7 +107,7 @@ impl MinecraftAuthenticator {
 					})
 				}
 				_ => {
-					let poll_error: PollErrorResponse = poll_response.json()?;
+					let poll_error: PollErrorResponse = poll_response.json().await?;
 
 					match poll_error.error.as_str() {
 						"authorization_pending" => continue,

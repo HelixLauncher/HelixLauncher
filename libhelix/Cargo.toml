@@ -16,7 +16,7 @@ crate-type = ["staticlib", "lib"]
 [dependencies.reqwest]
 version = "0.11"
 default-features = false
-features = ["default-tls", "json", "blocking"]
+features = ["default-tls", "json"]
 
 [dependencies.serde]
 version = "1.0"
@@ -31,6 +31,11 @@ features = ["std"]
 [dependencies.thiserror]
 version = "1.0"
 default-features = false
+
+[dependencies.tokio]
+version = "1.21"
+default-features = false
+features = ["rt", "macros"]
 
 [build-dependencies]
 cbindgen = { version = "0.24", optional = true }
