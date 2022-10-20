@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use serde::Deserialize;
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize)]
 pub(crate) struct CodeResponse {
 	pub(crate) device_code: String,
 	pub(crate) interval: i32,
