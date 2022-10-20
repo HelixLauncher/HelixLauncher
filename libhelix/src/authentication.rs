@@ -1,4 +1,5 @@
 mod request_structs;
+mod account;
 
 use std::thread;
 use std::time::Duration;
@@ -7,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
 
+use crate::authentication::account::Account;
 use crate::authentication::request_structs::{
 	DeviceCodeResponse,
 	MinecraftResponse,
@@ -113,7 +115,7 @@ impl MinecraftAuthenticator {
 					return Ok(Account {
 						uuid: profile_response.id,
 						username: profile_response.name,
-						minecraft_token: minecraft_response.access_token
+						token: minecraft_response.access_token
 					})
 				}
 				_ => {
@@ -129,11 +131,4 @@ impl MinecraftAuthenticator {
 			}
 		}
 	}
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Account {
-	uuid: String,
-	username: String,
-	minecraft_token: String
 }
