@@ -1,10 +1,20 @@
-use std::collections::HashMap;
+mod request_structs;
+
 use std::thread;
 use std::time::Duration;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use thiserror::Error;
+
+use crate::authentication::request_structs::{
+	DeviceCodeResponse,
+	MinecraftResponse,
+	PollErrorResponse,
+	PollSuccessResponse,
+	ProfileResponse,
+	XboxLiveResponse
+};
 
 #[derive(Error, Debug)]
 pub enum MinecraftAuthenticatorError {
@@ -119,70 +129,6 @@ impl MinecraftAuthenticator {
 			}
 		}
 	}
-}
-
-#[derive(Deserialize, Clone)]
-pub struct DeviceCodeResponse {
-	// This information is only needed by the authenticator, the application using the API does not
-	// need this information.
-	device_code: String,
-	interval: i32,
-	expires_in: i32,
-
-	pub user_code: String,
-	pub verification_uri: String,
-	pub message: String
-}
-
-#[derive(Deserialize)]
-pub(crate) struct PollSuccessResponse {
-	token_type: String,
-	scope: String,
-	expires_in: i32,
-	ext_expires_in: i32,
-	access_token: String,
-	// refresh_token: String,
-	// id_token: String
-}
-
-#[derive(Deserialize)]
-pub(crate) struct PollErrorResponse {
-	error: String
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub(crate) struct XboxLiveResponse {
-	issue_instant: String,
-	not_after: String,
-	token: String,
-	display_claims: HashMap<String, Vec<HashMap<String, String>>>
-}
-
-#[derive(Deserialize)]
-pub(crate) struct MinecraftResponse {
-	username: String,
-	// roles: Vec<?>,
-	// metadata: HashMap<?, ?>,
-	access_token: String,
-	expires_in: i32,
-	token_type: String
-}
-
-#[derive(Deserialize)]
-pub(crate) struct ProfileResponse {
-	id: String,
-	name: String,
-	skins: Vec<Skin>,
-	// capes: Vec<?>
-}
-
-#[derive(Deserialize)]
-pub(crate) struct Skin {
-	id: String,
-	state: String,
-	url: String,
-	variant: String
 }
 
 #[derive(Serialize, Deserialize)]
