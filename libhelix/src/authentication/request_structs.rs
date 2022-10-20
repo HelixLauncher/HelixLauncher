@@ -11,14 +11,14 @@ pub(crate) struct CodeResponse {
 }
 
 #[derive(Deserialize)]
-pub(crate) struct PollSuccessResponse {
-	pub(crate) refresh_token: String,
-	pub(crate) access_token: String
+pub(crate) struct GrantFailureResponse {
+	pub(crate) error: String
 }
 
 #[derive(Deserialize)]
-pub(crate) struct PollErrorResponse {
-	pub(crate) error: String
+pub(crate) struct GrantSuccessResponse {
+	pub(crate) refresh_token: String,
+	pub(crate) access_token: String
 }
 
 #[derive(Deserialize)]
