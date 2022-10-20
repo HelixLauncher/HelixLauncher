@@ -4,4 +4,9 @@
 </div>
 </h1>
 
-Helix Launcher is a work-in-progress Minecraft launcher built on Rust.
+> **Note**
+> This project is currently a work-in-progress.
+
+Helix Launcher is a Minecraft launcher built on Rust.
+
+Our goal is to design a snappy, fast, lightweight launcher while not compromising on how it looks.
