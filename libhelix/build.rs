@@ -1,3 +1,5 @@
+
+#[cfg(feature = "ffi")]
 fn main() {
     let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
 
@@ -8,3 +10,6 @@ fn main() {
         .expect("Unable to generate bindings")
         .write_to_file("libhelix.h");
 }
+
+#[cfg(not(feature = "ffi"))]
+fn main() {}

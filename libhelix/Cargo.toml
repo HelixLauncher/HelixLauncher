@@ -6,13 +6,16 @@ repository.workspace = true
 license.workspace = true
 description.workspace = true
 
+[features]
+ffi = ["dep:cbindgen"]
+
 [lib]
-name = "helix"
-crate-type = ["staticlib"]
+name = "libhelix"
+crate-type = ["staticlib", "lib"]
 
 [dependencies]
 serde = "1.0"
 serde_json = "1.0"
 
 [build-dependencies]
-cbindgen = "0.24"
+cbindgen = { version = "0.24", optional = true }
