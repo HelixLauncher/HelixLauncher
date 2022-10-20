@@ -5,5 +5,7 @@ pub struct Account {
 	pub uuid: String,
 	pub username: String,
 
-	pub token: String,
+	pub refresh_token: String,
+
+	pub token: String
 }

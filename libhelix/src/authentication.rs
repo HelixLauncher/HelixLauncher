@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::authentication::account::Account;
 use crate::authentication::request_structs::{
-	DeviceCodeResponse,
+	CodeResponse,
 	MinecraftResponse,
 	PollErrorResponse,
 	PollSuccessResponse,
@@ -19,7 +19,7 @@ use crate::authentication::request_structs::{
 };
 
 #[derive(Error, Debug)]
-pub enum MinecraftAuthenticatorError {
+pub enum AuthenticationError {
 	#[error(transparent)]
 	ReqwestError(#[from] reqwest::Error),
 
@@ -43,25 +43,25 @@ impl MinecraftAuthenticator {
 		MinecraftAuthenticator { client_id: client_id.to_string(), reqwest_client: Client::new() }
 	}
 
-	pub async fn authenticate(self, display_code: fn(DeviceCodeResponse)) -> Result<Account, MinecraftAuthenticatorError> {
-		let device_code_response: DeviceCodeResponse = self.reqwest_client
+	pub async fn initial_auth(self, callback: fn(code: String, uri: String, message: String)) -> Result<Account, AuthenticationError> {
+		let code_response: CodeResponse = self.reqwest_client
 			.get("https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode")
 			.form(&vec![
 				("client_id", self.client_id.as_str()),
-				("scope", "XboxLive.signin")
+				("scope", "XboxLive.signin offline_access")
 			])
 			.send().await?.json().await?;
 
-		display_code(device_code_response.clone());
+		callback(code_response.user_code, code_response.verification_uri, code_response.message);
 
 		loop {
-			thread::sleep(Duration::from_secs(device_code_response.interval as u64));
+			thread::sleep(Duration::from_secs(code_response.interval as u64));
 
 			let poll_response = self.reqwest_client
 				.post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
 				.form(&vec![
 					("client_id", self.client_id.as_str()),
-					("device_code", device_code_response.device_code.as_str()),
+					("device_code", code_response.device_code.as_str()),
 					("grant_type", &"urn:ietf:params:oauth:grant-type:device_code")
 				])
 				.send().await?;
@@ -115,6 +115,9 @@ impl MinecraftAuthenticator {
 					return Ok(Account {
 						uuid: profile_response.id,
 						username: profile_response.name,
+
+						refresh_token: poll_success.refresh_token,
+
 						token: minecraft_response.access_token
 					})
 				}
@@ -123,9 +126,9 @@ impl MinecraftAuthenticator {
 
 					match poll_error.error.as_str() {
 						"authorization_pending" => continue,
-						"authorization_declined" => return Err(MinecraftAuthenticatorError::OAuthDeclined),
-						"expired_token" => return Err(MinecraftAuthenticatorError::OAuthExpired),
-						_ => return Err(MinecraftAuthenticatorError::Unexpected)
+						"authorization_declined" => return Err(AuthenticationError::OAuthDeclined),
+						"expired_token" => return Err(AuthenticationError::OAuthExpired),
+						_ => return Err(AuthenticationError::Unexpected)
 					}
 				}
 			}
