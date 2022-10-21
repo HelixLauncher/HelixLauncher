@@ -15,7 +15,9 @@
         with pkgs; rec {
           devShells.default = mkShell {
             buildInputs = [
-              rust-bin.stable.latest.default
+              (rust-bin.stable.latest.default.override {
+                extensions = [ "rust-src" ];
+              })
               qt6.qtbase
               qt6.qtdeclarative
               qt6.qmake
