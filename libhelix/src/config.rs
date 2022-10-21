@@ -1,9 +1,9 @@
 //! Initial config support for libhelix
-//! 
+//!
 //! TODO:
 //! - Allow for users to provide their own path
 //! - make sure get_base_path doesn't panic
-//! - add fields the rest of the fields into Config 
+//! - add fields the rest of the fields into Config
 
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -52,13 +52,8 @@ impl Config {
     pub fn save_config(&self) -> Result<(), Error> {
         let filepath = self.path.join(CONFIG_NAME);
 
-        if filepath.exists() {
-            let mut file = File::options().write(true).open(filepath)?;
-            serde_json::to_writer_pretty(&mut file, self)?;
-        } else {
-            let mut file = File::create(filepath)?;
-            serde_json::to_writer_pretty(&mut file, self)?;
-        }
+        let mut file = File::options().write(true).create(true).open(filepath)?;
+        serde_json::to_writer_pretty(&mut file, self)?;
 
         Ok(())
     }
@@ -129,9 +124,7 @@ fn get_base_path() -> PathBuf {
                 path.push("share");
                 path
             }
-            Err(_) => {
-                env::current_dir().unwrap()
-            } 
+            Err(_) => env::current_dir().unwrap(),
         }
     }
 }
