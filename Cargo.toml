@@ -2,6 +2,7 @@
 members = [
     "helixlauncher",
     "libhelix",
+    "hxmc",
 ]
 
 [workspace.package]
