@@ -1,4 +1,3 @@
-
 #[cfg(feature = "ffi")]
 fn main() {
     let crate_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();

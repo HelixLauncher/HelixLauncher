@@ -9,3 +9,4 @@ license.workspace = true
 
 [dependencies]
 libhelix = { path = "../libhelix" }
+qmetaobject = "0.2.7"
