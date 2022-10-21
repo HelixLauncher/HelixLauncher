@@ -12,3 +12,4 @@ Cargo.lock
 **/*.rs.bk
 
 libhelix/libhelix.h
+.direnv/
