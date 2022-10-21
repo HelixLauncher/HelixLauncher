@@ -1,10 +1,10 @@
 use std::{
     fs::{self, File},
-    io::Write,
+    io::BufReader,
     path::{Path, PathBuf},
 };
 
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct Instance {
@@ -14,8 +14,8 @@ pub struct Instance {
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct InstanceLaunch {
-    args: Option<Vec<String>>,
-    jvm_args: Option<Vec<String>>,
+    args: Vec<String>,
+    jvm_args: Vec<String>,
     prelaunch_command: Option<String>,
     postlaunch_command: Option<String>,
     allocation: Option<RamAllocation>,
@@ -42,24 +42,26 @@ impl Instance {
     /// let instance = Instance::new(name, InstanceLaunch::default());
     /// ```
     fn new(name: String, launch: InstanceLaunch, instances_dir: &Path) -> Self {
-        let instance = Instance { name, launch };
+        let instance = Self { name, launch };
 
         // make instance folder & skeleton (try to avoid collisions)
-        let instance_dir = instances_dir.join(&instance.name);
+        let mut instance_dir = instances_dir.join(&instance.name);
         if instances_dir.try_exists().unwrap() {
             todo!("Resolve folder collision (1)");
         }
-        fs::create_dir(&instance_dir).unwrap();
-        fs::create_dir(&instance_dir.join(".minecraft")).unwrap();
+
+        instance_dir.push(".minecraft");
+        fs::create_dir_all(&instance_dir).unwrap();
 
         // create instance config
-        let instance_json = File::create(instance_dir.join(INSTX_CONFIG_NAME)).unwrap();
+        instance_dir.push(INSTX_CONFIG_NAME);
+        let instance_json = File::create(&instance_dir).unwrap();
         serde_json::to_writer_pretty(instance_json, &instance).unwrap();
 
         instance
     }
 
-    /// Fetch instance from it's path.
+    /// Fetch instance from its path.
     ///
     /// ```
     /// let path = PathBuf::from(r"/home/user/.launcher/instance/minecraft");
@@ -70,21 +72,20 @@ impl Instance {
             panic!("put a real option/result here!");
         }
         let instance_json = path.as_ref().join(INSTX_CONFIG_NAME);
-        serde_json::from_str(&fs::read_to_string(instance_json).unwrap()).unwrap()
+        read_json_file(&instance_json)
     }
 
-    fn list_instances<P: AsRef<Path>>(instances_dir: P) -> Vec<Instance> {
-        let mut instances = vec![];
-        // list folders in dir
-        for item in fs::read_dir(instances_dir).unwrap() {
-            // call a from_path on each
-            let instance = Instance::from_path(item.unwrap().path());
-            instances.push(instance);
-        }
-
-        // put into a vec and spit out
-        instances
+    fn list_instances<P: AsRef<Path>>(instances_dir: P) -> Vec<Self> {
+        fs::read_dir(instances_dir)
+            .unwrap()
+            .map(|i| Self::from_path(i.unwrap().path()))
+            .collect()
     }
+}
+
+fn read_json_file<T: DeserializeOwned>(path: &Path) -> T {
+    let file = BufReader::new(File::open(path).unwrap());
+    serde_json::from_reader(file).unwrap()
 }
 
 #[derive(Serialize, Deserialize)]
@@ -106,10 +107,10 @@ impl InstanceDirectory {
         //     write default, save, return
 
         if instances_dir.try_exists().unwrap() {
-            return serde_json::from_str(&fs::read_to_string(directory_json).unwrap()).unwrap();
+            read_json_file(&directory_json)
         } else {
             // write defaults
-            let inst_dir = InstanceDirectory {
+            let inst_dir = Self {
                 name: String::from("Base Directory"),
                 children: vec![],
                 relative_path: PathBuf::from("."),
@@ -117,14 +118,14 @@ impl InstanceDirectory {
             let directory_json = File::create(directory_json).unwrap();
             serde_json::to_writer_pretty(directory_json, &inst_dir).unwrap();
 
-            return inst_dir;
+            inst_dir
         }
     }
-    pub fn new(name: String, parent: &mut InstanceDirectory, instances_dir: PathBuf) -> Self {
-        let inst_dir = InstanceDirectory {
+    pub fn new(name: String, parent: &mut Self, instances_dir: PathBuf) -> Self {
+        let inst_dir = Self {
             name: name.clone(),
             children: vec![],
-            relative_path: parent.relative_path.join(name.clone()),
+            relative_path: parent.relative_path.join(name),
         };
 
         // make this path absolute
@@ -155,22 +156,24 @@ enum InstanceFolderSearchItems {
 impl InstanceFolderSearchItems {
     fn identify_item<P: AsRef<Path>>(path: P) -> Self {
         // weird edge case here: folder could have both files in. if so, whoops!
-        for file in fs::read_dir(path).unwrap() {
-            if file.as_ref().unwrap().file_name() == INSTX_CONFIG_NAME {
-                return InstanceFolderSearchItems::InstanceDir;
-            } else if file.unwrap().file_name() == SUBDIR_CONFIG_NAME {
-                return InstanceFolderSearchItems::DirectoryDir;
-            }
-        }
-        return InstanceFolderSearchItems::UnknownDir;
+        fs::read_dir(path)
+            .unwrap()
+            .find_map(|file| {
+                let file_name = file.unwrap().file_name();
+                if file_name == INSTX_CONFIG_NAME {
+                    Some(InstanceFolderSearchItems::InstanceDir)
+                } else if file_name == SUBDIR_CONFIG_NAME {
+                    Some(InstanceFolderSearchItems::DirectoryDir)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(InstanceFolderSearchItems::UnknownDir)
     }
     fn is_instance<P: AsRef<Path>>(path: P) -> bool {
         // weird edge case here: folder could have both files in. if so, whoops!
-        for file in fs::read_dir(path).unwrap() {
-            if file.as_ref().unwrap().file_name() == INSTX_CONFIG_NAME {
-                return true;
-            }
-        }
-        false
+        fs::read_dir(path)
+            .unwrap()
+            .any(|file| file.unwrap().file_name() == INSTX_CONFIG_NAME)
     }
 }
