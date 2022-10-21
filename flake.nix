@@ -1,5 +1,5 @@
 {
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-22.05";
   inputs.rust-overlay.url = "github:oxalica/rust-overlay";
   inputs.rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
   inputs.flake-utils.url = "github:numtide/flake-utils";
@@ -18,13 +18,17 @@
               (rust-bin.stable.latest.default.override {
                 extensions = [ "rust-src" ];
               })
-              qt6.qtbase
-              qt6.qtdeclarative
-              qt6.qmake
+              qt5.qtbase
+              qt5.qtdeclarative
+              qt5.qtquickcontrols2
+              qt5.qmake
             ];
 
-            QT_LIBRARY_PATH = "${qt6.qtbase}/lib";
-            QT_INCLUDE_PATH = "${qt6.qtbase.dev}/include";
+            shellHook = ''
+            export QT_LIBRARY_PATH="${qt5.qtbase}/lib"
+            export QT_INCLUDE_PATH="${qt5.qtbase.dev}/include"
+            export QML2_IMPORT_PATH=${qt5.qtdeclarative.bin}/${qt5.qtbase.qtQmlPrefix}:${qt5.qtquickcontrols2.bin}/${qt5.qtbase.qtQmlPrefix}
+            '';
           };
         });
 }
