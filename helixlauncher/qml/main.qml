@@ -23,13 +23,42 @@ Kirigami.ApplicationWindow {
         },
 
         Kirigami.ScrollablePage {
-            Rectangle {
-                width: parent.width
-                height: 99999
+            Kirigami.CardsListView {
+                model: ListModel {
+                    ListElement { name: "Adrenaline AU"; version: "Quilt 1.19.2"; playTime: "182 hours and 32 minutes" }
+                    ListElement { name: "Fabulously Optimized"; version: "Fabric 1.19.2"; playTime: "43 hours and 3 minutes" }
+                    ListElement { name: "Simply Optimized"; version: "Fabric 1.19.2"; playTime: "3 hours and 17 minutes" }
+                }
 
-                Label { text: "Instances" }
+                delegate: Kirigami.AbstractCard {
+                    contentItem: RowLayout {
+                        spacing: Kirigami.Units.gridUnit
 
-                color: "green"
+                        Kirigami.Heading {
+                            Layout.fillWidth: true
+                            Layout.fillHeight: true
+
+                            level: 1
+                            text: name
+                        }
+
+                        Kirigami.Heading {
+                            Layout.fillHeight: true
+
+                            level: 3
+                            color: Kirigami.Theme.disabledTextColor
+                            text: version
+                        }
+
+                        Kirigami.Heading {
+                            Layout.fillHeight: true
+
+                            level: 3
+                            color: Kirigami.Theme.disabledTextColor
+                            text: playTime
+                        }
+                    }
+                }
             }
 
             footer: Rectangle {
