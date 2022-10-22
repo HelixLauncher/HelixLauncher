@@ -3,8 +3,11 @@ use qmetaobject::qtquickcontrols2::QQuickStyle;
 use std::env;
 
 qrc!(register_resources,
+     "icons" as "helixlauncher/icons" {
+         "settings.svg",
+     },
      "qml" as "helixlauncher/qml" {
-         "main.qml"
+         "main.qml",
      },
 );
 

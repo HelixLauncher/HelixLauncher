@@ -79,6 +79,8 @@ Kirigami.ApplicationWindow {
                             anchors.verticalCenter: parent.verticalCenter
 
                             text: "Settings"
+                            icon.source: "../icons/settings.svg"
+                            display: AbstractButton.IconOnly
                         }
                     }
 
