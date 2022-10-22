@@ -3,46 +3,43 @@ import QtQuick.Controls 2.15 as Controls
 import QtQuick.Layouts 1.15
 import org.kde.kirigami 2.13 as Kirigami
 
-Kirigami.AbstractApplicationWindow {
+Kirigami.ApplicationWindow {
     id: root
 
     title: "Helix Launcher"
 
-    Kirigami.PageRow {
-        anchors.fill: parent
+    pageStack.globalToolBar.style: pageStack.wideMode ? Kirigami.ApplicationHeaderStyle.None : Kirigami.ApplicationHeaderStyle.Auto
 
-        defaultColumnWidth: 200
+    pageStack.defaultColumnWidth: 200
+    pageStack.items: [
+        Kirigami.Page {
+            Rectangle {
+                anchors.fill: parent
 
-        items: [
-            Kirigami.Page {
-                Rectangle {
-                    anchors.fill: parent
+                Controls.Label { text: "Sidebar"; anchors.centerIn: parent }
 
-                    Controls.Label { text: "Sidebar"; anchors.centerIn: parent }
-
-                    color: "red"
-                }
-            },
-
-            Kirigami.ScrollablePage {
-                Rectangle {
-                    width: parent.width
-                    height: 99999
-
-                    Controls.Label { text: "Instances" }
-
-                    color: "green"
-                }
-
-                footer: Rectangle {
-                    width: parent.width
-                    height: 100
-
-                    Controls.Label { text: "Footer" }
-
-                    color: "blue"
-                }
+                color: "red"
             }
-        ]
-    }
+        },
+
+        Kirigami.ScrollablePage {
+            Rectangle {
+                width: parent.width
+                height: 99999
+
+                Controls.Label { text: "Instances" }
+
+                color: "green"
+            }
+
+            footer: Rectangle {
+                width: parent.width
+                height: 100
+
+                Controls.Label { text: "Footer" }
+
+                color: "blue"
+            }
+        }
+    ]
 }
