@@ -1,80 +1,124 @@
 import QtQuick 2.15
-import QtQuick.Controls 2.15
+import QtQuick.Controls 2.15 as Controls
 import QtQuick.Layouts 1.15
+import org.kde.kirigami 2.13 as Kirigami
 
-ApplicationWindow {
-    id: window
+Kirigami.AbstractApplicationWindow {
+    id: root
 
-    title: "HelixLauncher"
-    visible: true
+    title: "Helix Launcher"
 
-    GridLayout {
+    Kirigami.Page {
         anchors.fill: parent
 
-        rows: 2
-        columns: 3
+        Kirigami.OverlayDrawer {
+            id: sidebar
 
-        Rectangle {
-            Label { text: "Sidebar"; anchors.centerIn: parent }
+            edge: Qt.LeftEdge
+            modal: false
 
-            color: "red"
+            width: 200
 
-            Layout.preferredWidth: 200
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            contentItem: Rectangle {
+                Controls.Label { text: "Sidebar"; anchors.centerIn: parent }
 
-            Layout.row: 0
-            Layout.column: 0
-            Layout.rowSpan: 2
-            Layout.columnSpan: 1
+                color: "red"
+
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
         }
 
-        Rectangle {
-            Label { text: "Instances"; anchors.centerIn: parent }
+        Kirigami.OverlayDrawer {
+            id: bottomDrawer
 
-            color: "blue"
+            leftPadding: sidebar.width
 
-            Layout.preferredWidth: 1000
-            Layout.preferredHeight: 800
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            edge: Qt.BottomEdge
+            modal: false
 
-            Layout.row: 0
-            Layout.column: 1
-            Layout.rowSpan: 1
-            Layout.columnSpan: 2
+            height: 100
+
+            contentItem: Rectangle {
+                Controls.Label { text: "Bottom"; anchors.centerIn: parent }
+
+                color: "green"
+
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+            }
         }
 
-        Rectangle {
-            Label { text: "Settings"; anchors.centerIn: parent }
+        GridLayout {
+            anchors.fill: parent
+            anchors.leftMargin: sidebar.width
+            anchors.bottomMargin: bottomDrawer.height
 
-            color: "green"
+            rows: 2
+            columns: 3
 
-            Layout.minimumWidth: 200
-            Layout.preferredHeight: 100
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            Rectangle {
+                Controls.Label { text: "Sidebar"; anchors.centerIn: parent }
 
-            Layout.row: 1
-            Layout.column: 1
-            Layout.rowSpan: 1
-            Layout.columnSpan: 1
-        }
+                color: "red"
 
-        Rectangle {
-            Label { text: "Selected"; anchors.centerIn: parent }
+                Layout.preferredWidth: 200
+                Layout.fillWidth: true
+                Layout.fillHeight: true
 
-            color: "orange"
+                Layout.row: 0
+                Layout.column: 0
+                Layout.rowSpan: 2
+                Layout.columnSpan: 1
+            }
 
-            Layout.minimumWidth: 200
-            Layout.preferredHeight: 100
-            Layout.fillWidth: true
-            Layout.fillHeight: true
+            Rectangle {
+                Controls.Label { text: "Instances"; anchors.centerIn: parent }
 
-            Layout.row: 1
-            Layout.column: 2
-            Layout.rowSpan: 1
-            Layout.columnSpan: 1
+                color: "blue"
+
+                Layout.preferredWidth: 1000
+                Layout.preferredHeight: 800
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                Layout.row: 0
+                Layout.column: 1
+                Layout.rowSpan: 1
+                Layout.columnSpan: 2
+            }
+
+            Rectangle {
+                Controls.Label { text: "Settings"; anchors.centerIn: parent }
+
+                color: "green"
+
+                Layout.minimumWidth: 200
+                Layout.preferredHeight: 100
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                Layout.row: 1
+                Layout.column: 1
+                Layout.rowSpan: 1
+                Layout.columnSpan: 1
+            }
+
+            Rectangle {
+                Controls.Label { text: "Selected"; anchors.centerIn: parent }
+
+                color: "orange"
+
+                Layout.minimumWidth: 200
+                Layout.preferredHeight: 100
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                Layout.row: 1
+                Layout.column: 2
+                Layout.rowSpan: 1
+                Layout.columnSpan: 1
+            }
         }
     }
 }
