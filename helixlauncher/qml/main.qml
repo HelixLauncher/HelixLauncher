@@ -61,13 +61,38 @@ Kirigami.ApplicationWindow {
                 }
             }
 
-            footer: Rectangle {
-                width: parent.width
+            footer: Pane {
+                Kirigami.Theme.inherit: false
+                Kirigami.Theme.colorSet: Kirigami.Theme.Window
+
                 height: 100
 
-                Label { text: "Footer" }
+                RowLayout {
+                    anchors.fill: parent
 
-                color: "blue"
+                    Item {
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        Layout.leftMargin: Kirigami.Units.gridUnit
+
+                        Button {
+                            anchors.verticalCenter: parent.verticalCenter
+
+                            text: "Settings"
+                        }
+                    }
+
+                    Rectangle {
+                        width: 300
+                        Layout.fillHeight: true
+
+                        color: "blue"
+
+                        Label {
+                            text: "Instance"
+                        }
+                    }
+                }
             }
         }
     ]
