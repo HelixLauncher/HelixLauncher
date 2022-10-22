@@ -1,5 +1,5 @@
 import QtQuick 2.15
-import QtQuick.Controls 2.15 as Controls
+import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import org.kde.kirigami 2.13 as Kirigami
 
@@ -16,7 +16,7 @@ Kirigami.ApplicationWindow {
             Rectangle {
                 anchors.fill: parent
 
-                Controls.Label { text: "Sidebar"; anchors.centerIn: parent }
+                Label { text: "Sidebar"; anchors.centerIn: parent }
 
                 color: "red"
             }
@@ -27,7 +27,7 @@ Kirigami.ApplicationWindow {
                 width: parent.width
                 height: 99999
 
-                Controls.Label { text: "Instances" }
+                Label { text: "Instances" }
 
                 color: "green"
             }
@@ -36,7 +36,7 @@ Kirigami.ApplicationWindow {
                 width: parent.width
                 height: 100
 
-                Controls.Label { text: "Footer" }
+                Label { text: "Footer" }
 
                 color: "blue"
             }
