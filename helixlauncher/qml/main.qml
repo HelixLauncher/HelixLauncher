@@ -10,7 +10,7 @@ Kirigami.ApplicationWindow {
 
     pageStack.globalToolBar.style: pageStack.wideMode ? Kirigami.ApplicationHeaderStyle.None : Kirigami.ApplicationHeaderStyle.Auto
 
-    pageStack.defaultColumnWidth: 200
+    pageStack.defaultColumnWidth: Kirigami.Units.gridUnit * 16
     pageStack.items: [
         Kirigami.Page {
             Rectangle {
