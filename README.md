@@ -1,4 +1,5 @@
-# <img alt="Helix Launcher Banner" src="https://raw.githubusercontent.com/HelixLauncher/Art/main/branding/banner-launcher/banner-launcher_96h.png"></img>
+# <img alt="Helix Launcher Banner" src="https://raw.githubusercontent.com/HelixLauncher/Art/main/branding/banner-launcher/banner-launcher_64h.png"></img>
+
 Helix Launcher is a Minecraft launcher written from scratch in [Rust](https://w.wiki/3nmg). It aims to put common user needs first -- such as accessibility, [software freedom](https://w.wiki/f), and fine-grained control.
 
 That's a lot of buzzwords, we know ^^.
