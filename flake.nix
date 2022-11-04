@@ -23,12 +23,13 @@
               qt5.qtquickcontrols2
               qt5.qmake
               plasma5Packages.qqc2-desktop-style
+              plasma5Packages.kirigami2
             ];
 
             shellHook = ''
             export QT_LIBRARY_PATH="${qt5.qtbase}/lib"
             export QT_INCLUDE_PATH="${qt5.qtbase.dev}/include"
-            export QML2_IMPORT_PATH=${qt5.qtdeclarative.bin}/${qt5.qtbase.qtQmlPrefix}:${qt5.qtquickcontrols2.bin}/${qt5.qtbase.qtQmlPrefix}:${plasma5Packages.qqc2-desktop-style.bin}/${qt5.qtbase.qtQmlPrefix}
+            export QML2_IMPORT_PATH=${qt5.qtdeclarative.bin}/${qt5.qtbase.qtQmlPrefix}:${qt5.qtquickcontrols2.bin}/${qt5.qtbase.qtQmlPrefix}:${plasma5Packages.qqc2-desktop-style.bin}/${qt5.qtbase.qtQmlPrefix}:${plasma5Packages.kirigami2}/${qt5.qtbase.qtQmlPrefix}
             '';
           };
         });
