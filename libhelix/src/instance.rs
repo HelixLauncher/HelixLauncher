@@ -6,28 +6,35 @@ use std::{
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Instance {
-    name: String,
-    launch: InstanceLaunch,
+    pub name: String,
+    pub components: Vec<Component>,
+    pub launch: InstanceLaunch,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Serialize, Deserialize, Debug)]
 pub struct InstanceLaunch {
-    args: Vec<String>,
-    jvm_args: Vec<String>,
-    prelaunch_command: Option<String>,
-    postlaunch_command: Option<String>,
-    allocation: Option<RamAllocation>,
-    javaagent: Option<PathBuf>,
+    pub args: Vec<String>,
+    pub jvm_args: Vec<String>,
+    pub prelaunch_command: Option<String>,
+    pub postlaunch_command: Option<String>,
+    pub allocation: Option<RamAllocation>,
+    // javaagent: Option<PathBuf>,
 }
 
 type Mebibytes = u32;
 
-#[derive(Serialize, Deserialize)]
-struct RamAllocation {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct RamAllocation {
     min: Mebibytes,
     max: Mebibytes,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Component {
+    pub id: String,
+    pub version: String,
 }
 
 const INSTX_CONFIG_NAME: &str = "instance.helix.json";
@@ -41,8 +48,8 @@ impl Instance {
     /// let instances_dir = PathBuf::from(r"/home/user/.launcher/instance/")
     /// let instance = Instance::new(name, InstanceLaunch::default());
     /// ```
-    pub fn new(name: String, launch: InstanceLaunch, instances_dir: &Path) -> Self {
-        let instance = Self { name, launch };
+    pub fn new(name: String, mc_version: String, launch: InstanceLaunch, instances_dir: &Path) -> Self {
+        let instance = Self { name, components: vec![Component {id: String::from("net.minecraft"), version: mc_version}], launch };
 
         // make instance folder & skeleton (try to avoid collisions)
         let mut instance_dir = instances_dir.join(&instance.name);
@@ -74,7 +81,7 @@ impl Instance {
         read_json_file(&instance_json)
     }
 
-    fn list_instances<P: AsRef<Path>>(instances_dir: P) -> Vec<Self> {
+    pub fn list_instances<P: AsRef<Path>>(instances_dir: P) -> Vec<Self> {
         fs::read_dir(instances_dir)
             .unwrap()
             .map(|i| Self::from_path(i.unwrap().path()))
@@ -176,3 +183,4 @@ impl InstanceFolderSearchItems {
             .any(|file| file.unwrap().file_name() == INSTX_CONFIG_NAME)
     }
 }
+
