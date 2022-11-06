@@ -41,23 +41,22 @@ impl Instance {
     /// let instances_dir = PathBuf::from(r"/home/user/.launcher/instance/")
     /// let instance = Instance::new(name, InstanceLaunch::default());
     /// ```
-    fn new(name: String, launch: InstanceLaunch, instances_dir: &Path) -> Self {
+    pub fn new(name: String, launch: InstanceLaunch, instances_dir: &Path) -> Self {
         let instance = Self { name, launch };
 
         // make instance folder & skeleton (try to avoid collisions)
         let mut instance_dir = instances_dir.join(&instance.name);
-        if instances_dir.try_exists().unwrap() {
+        if instance_dir.try_exists().unwrap() {
             todo!("Resolve folder collision (1)");
         }
 
-        instance_dir.push(".minecraft");
-        fs::create_dir_all(&instance_dir).unwrap();
+        // make the .minecraft dir & instance dir in one line
+        fs::create_dir_all(instance_dir.join(".minecraft")).unwrap();
 
         // create instance config
-        instance_dir.push(INSTX_CONFIG_NAME);
-        let instance_json = File::create(&instance_dir).unwrap();
+        let instance_json = File::create(instance_dir.join(INSTX_CONFIG_NAME)).unwrap();
         serde_json::to_writer_pretty(instance_json, &instance).unwrap();
-
+        
         instance
     }
 
@@ -67,7 +66,7 @@ impl Instance {
     /// let path = PathBuf::from(r"/home/user/.launcher/instance/minecraft");
     /// let instance = Instance::from(path);
     /// ```
-    fn from_path<P: AsRef<Path>>(path: P) -> Self {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> Self {
         if !InstanceFolderSearchItems::is_instance(&path) {
             panic!("put a real option/result here!");
         }
