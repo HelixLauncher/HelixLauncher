@@ -24,6 +24,7 @@
               qt5.qmake
               plasma5Packages.qqc2-desktop-style
               plasma5Packages.kirigami2
+              pkg-config
             ];
 
             shellHook = ''
