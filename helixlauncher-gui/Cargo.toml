@@ -8,5 +8,5 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-helixlauncher-core = { path = "../helixlauncher-core" }
+helixlauncher-core = { version = "0.1.0", path = "../helixlauncher-core" }
 qmetaobject = "0.2.7"
