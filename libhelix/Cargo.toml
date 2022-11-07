@@ -19,6 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 tokio = { version = "1.21", features = ["rt", "macros"] }
+helix-meta = { git = "https://github.com/HelixLauncher/meta.git" }
 
 [build-dependencies]
 cbindgen = { version = "0.24", optional = true }
