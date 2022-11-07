@@ -10,7 +10,6 @@ description.workspace = true
 ffi = ["dep:cbindgen"]
 
 [lib]
-name = "helixlauncher_core"
 crate-type = ["staticlib", "lib"]
 
 [dependencies]
