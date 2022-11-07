@@ -1,5 +1,5 @@
 [package]
-name = "hxmc"
+name = "helixlauncher-cli"
 version = "0.1.0"
 edition = "2021"
 description = "Helix Launcher CLI"
@@ -13,5 +13,5 @@ clap-verbosity-flag = "2.0.0"
 log = { version = "0.4.17", features = ["serde"] }
 pretty_env_logger = "0.4.0"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread", "fs", "process"] }
-libhelix = { path = "../libhelix" }
+helixlauncher-core = { path = "../helixlauncher-core" }
 directories = "4.0"

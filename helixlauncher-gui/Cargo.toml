@@ -1,5 +1,5 @@
 [package]
-name = "helixlauncher"
+name = "helixlauncher-gui"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -8,5 +8,5 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-libhelix = { path = "../libhelix" }
+helixlauncher-core = { path = "../helixlauncher-core" }
 qmetaobject = "0.2.7"

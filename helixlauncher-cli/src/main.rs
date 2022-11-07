@@ -7,8 +7,8 @@ use std::io;
 use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use libhelix::instance::Instance;
-use libhelix::instance::InstanceLaunch;
+use helixlauncher_core::instance::Instance;
+use helixlauncher_core::instance::InstanceLaunch;
 use directories::ProjectDirs;
 
 #[derive(Parser, Debug)]

@@ -3,10 +3,10 @@ use qmetaobject::qtquickcontrols2::QQuickStyle;
 use std::env;
 
 qrc!(register_resources,
-     "icons" as "helixlauncher/icons" {
+     "icons" as "helixlauncher-gui/icons" {
          "settings.svg",
      },
-     "qml" as "helixlauncher/qml" {
+     "qml" as "helixlauncher-gui/qml" {
          "main.qml",
      },
 );
@@ -20,6 +20,6 @@ fn main() {
     register_resources();
 
     let mut engine = QmlEngine::new();
-    engine.load_file("qrc:/helixlauncher/qml/main.qml".into());
+    engine.load_file("qrc:/helixlauncher-gui/qml/main.qml".into());
     engine.exec();
 }

@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "helixlauncher",
-    "libhelix",
-    "hxmc",
+    "helixlauncher-gui",
+    "helixlauncher-cli",
+    "helixlauncher-core",
 ]
 
 [workspace.package]

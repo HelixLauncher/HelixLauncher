@@ -7,7 +7,7 @@ fn main() {
         .with_language(cbindgen::Language::C)
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file("libhelix.h");
+        .write_to_file("helixlauncher_core.h");
 }
 
 #[cfg(not(feature = "ffi"))]
