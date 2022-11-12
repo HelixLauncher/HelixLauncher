@@ -1,10 +1,10 @@
 use std::{
     fs::{self, File},
     io::BufReader,
-    path::{Path, PathBuf},
+    path::Path,
 };
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -77,7 +77,7 @@ impl Instance {
         };
 
         // make instance folder & skeleton (try to avoid collisions)
-        let mut instance_dir = instances_dir.join(&instance.name);
+        let instance_dir = instances_dir.join(&instance.name);
         if instance_dir.try_exists()? {
             todo!("Resolve folder collision (1)");
         }
@@ -106,9 +106,9 @@ impl Instance {
         {
             Some(config) => {
                 let reader = BufReader::new(File::open(config.path())?);
-                return Ok(serde_json::from_reader(reader)?);
+                Ok(serde_json::from_reader(reader)?)
             }
-            None => return Err(InstanceManagerError::NotAnInstance),
+            None => Err(InstanceManagerError::NotAnInstance),
         }
     }
 
@@ -116,7 +116,7 @@ impl Instance {
         instances_dir: P,
     ) -> Result<Vec<Self>, InstanceManagerError> {
         fs::read_dir(instances_dir)?
-            .map(|i| Ok(Self::from_path(i?.path())?))
+            .map(|i| Self::from_path(i?.path()))
             .collect()
     }
 }

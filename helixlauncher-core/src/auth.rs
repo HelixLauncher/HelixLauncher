@@ -70,7 +70,7 @@ impl MinecraftAuthenticator {
                     ("device_code", code_response.device_code.as_str()),
                     (
                         "grant_type",
-                        &"urn:ietf:params:oauth:grant-type:device_code",
+                        "urn:ietf:params:oauth:grant-type:device_code",
                     ),
                 ])
                 .send()
