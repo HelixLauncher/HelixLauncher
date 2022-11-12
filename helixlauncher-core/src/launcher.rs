@@ -25,7 +25,6 @@ impl From<String> for ClassPath {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Launcher {
     /// Path to the Java executable
@@ -40,13 +39,22 @@ impl Launcher {
         todo!()
     }
 
-    pub fn launch(&self, version: &str, username: &str, session: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn launch(
+        &self,
+        version: &str,
+        username: &str,
+        session: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         todo!()
     }
 
     pub fn generate_classpath(&self) -> String {
-        todo!()
-        // self.classpath.join(CLASSPATH_SEPARATOR)
+        let classpath = self
+            .classpath
+            .iter()
+            .map(|cp| cp.path.to_str().unwrap())
+            .collect::<Vec<&str>>()
+            .join(CLASSPATH_SEPARATOR);
+        classpath
     }
-
 }
