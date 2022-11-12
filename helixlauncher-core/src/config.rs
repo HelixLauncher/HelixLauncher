@@ -111,6 +111,16 @@ impl From<serde_json::Error> for Error {
 }
 
 fn get_base_path() -> PathBuf {
+
+    // We should be using the dirs crate to get the base path.
+    // This works on almost all platforms, especially windows and macOS.
+
+    // See here: https://docs.rs/dirs/latest/dirs/fn.data_dir.html
+
+    dirs::data_dir()
+    .or_else(|| env::current_dir().ok())
+    .unwrap()
+    /*
     // This logic isn't perfect and could crash in its current state
     if cfg!(windows) {
         env::var("APPDATA").unwrap().into()
@@ -126,5 +136,5 @@ fn get_base_path() -> PathBuf {
             }
             Err(_) => env::current_dir().unwrap(),
         }
-    }
+    } */
 }
