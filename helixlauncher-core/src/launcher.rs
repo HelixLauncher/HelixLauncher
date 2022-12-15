@@ -46,6 +46,11 @@ impl Launcher {
         session: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
         todo!()
+        // TODO
+        // 1: Fetch game files from game mod
+        // 2: Get user data from auth mod
+        // 3: Fetch meta for start command
+        // 4: Run start command with classpath
     }
 
     pub fn generate_classpath(&self) -> String {
