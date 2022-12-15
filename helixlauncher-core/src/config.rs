@@ -13,7 +13,7 @@ use std::{
     io,
 };
 
-pub const CONFIG_NAME: &str = "libhelix_config.json";
+pub const CONFIG_NAME: &str = "config.helix.json";
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {

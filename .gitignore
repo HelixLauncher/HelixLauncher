@@ -13,3 +13,4 @@ Cargo.lock
 
 libhelix/libhelix.h
 .direnv/
+*.helix.json

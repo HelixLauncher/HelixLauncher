@@ -11,7 +11,7 @@ pub enum AccountManagerError {
     IoError(#[from] std::io::Error),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Account {
     pub uuid: String,
     pub username: String,

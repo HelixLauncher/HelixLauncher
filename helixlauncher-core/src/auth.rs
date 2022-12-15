@@ -3,11 +3,13 @@ mod request_structs;
 
 use reqwest::{Client, StatusCode};
 use serde_json::json;
-use std::time::Duration;
+use std::{time::Duration, path::Path};
 use thiserror::Error;
 
-use account::Account;
+use account::{Account};
 use request_structs::*;
+
+const DEFAULT_ACCOUNT_JSON: &str = "accounts.helix.json";
 
 #[derive(Error, Debug)]
 pub enum AuthenticationError {
@@ -188,7 +190,11 @@ impl MinecraftAuthenticator {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use crate::auth::MinecraftAuthenticator;
+
+    use super::{account::{get_accounts, add_account}, DEFAULT_ACCOUNT_JSON};
 
     #[tokio::test]
     async fn test() {
@@ -204,5 +210,14 @@ mod tests {
         let account = authenticator.refresh(account).await.unwrap();
 
         println!("{}", serde_json::to_string(&account).unwrap());
+
+        add_account(account, Path::new(DEFAULT_ACCOUNT_JSON)).unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_account_storage() {
+        for account in get_accounts(Path::new(DEFAULT_ACCOUNT_JSON)).unwrap() {
+            println!("{}", serde_json::to_string(&account).unwrap());
+        }
     }
 }
