@@ -3,7 +3,7 @@ mod request_structs;
 
 use reqwest::{Client, StatusCode};
 use serde_json::json;
-use std::{time::Duration, path::Path};
+use std::time::Duration;
 use thiserror::Error;
 
 use account::{Account};
