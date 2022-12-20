@@ -6,7 +6,7 @@ use serde_json::json;
 use std::time::Duration;
 use thiserror::Error;
 
-use account::{Account};
+use account::Account;
 use request_structs::*;
 
 const DEFAULT_ACCOUNT_JSON: &str = "accounts.helix.json";
@@ -70,10 +70,7 @@ impl MinecraftAuthenticator {
                 .form(&[
                     ("client_id", self.client_id.as_str()),
                     ("device_code", code_response.device_code.as_str()),
-                    (
-                        "grant_type",
-                        "urn:ietf:params:oauth:grant-type:device_code",
-                    ),
+                    ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
                 ])
                 .send()
                 .await?;
@@ -194,7 +191,10 @@ mod tests {
 
     use crate::auth::MinecraftAuthenticator;
 
-    use super::{account::{get_accounts, add_account}, DEFAULT_ACCOUNT_JSON};
+    use super::{
+        account::{add_account, get_accounts},
+        DEFAULT_ACCOUNT_JSON,
+    };
 
     #[tokio::test]
     async fn test() {
