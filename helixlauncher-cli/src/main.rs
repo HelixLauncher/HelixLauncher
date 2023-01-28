@@ -3,6 +3,7 @@
 
 use std::fs;
 use std::io;
+use std::io::Read;
 
 use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
@@ -66,7 +67,7 @@ async fn main() -> Result<()> {
 
 async fn create_instance() -> Result<()> {
     // creation wizard
-    // probably a better way to do this
+    // probably a better way to do this - probably even more so for modloader bit
 
     println!("Enter instance name: ");
     let mut name = String::new();
@@ -82,14 +83,60 @@ async fn create_instance() -> Result<()> {
         .expect("error: unable to read user input");
     version = version.trim().to_owned();
 
-    // add modloader later?
+    println!("Enter modloader: ");
+    let mut modloader_string = String::new();
+    io::stdin()
+        .read_line(&mut modloader_string)
+        .expect("error: unable to read user input");
+    modloader_string = modloader_string.trim().to_lowercase().to_owned();
+    let modloader_str = modloader_string.to_str();
+    let modloader = match modloader_str {
+        "quilt" | "quiltmc" => Modloader::Quilt,
+        "fabric" | "fabricmc" => Modloader::Fabric,
+        "forge" | "minecraftforge" => Modloader::Forge,
+        _ => Modloader::Vanilla,
+    };
+    if (modloader_str != "quilt"
+        && modloader_str != "quiltmc"
+        && modloader_str != "fabric"
+        && modloader_str != "fabricmc"
+        && modloader_str != "forge"
+        && modloader_str != "minecraftforge"
+        && modloader_str != "none"
+        && modloader_str != "vanilla")
+    {
+        println!("warn: using vanilla as modloader is invalid")
+    }
+
+    let mut modloader_version = String::new();
+
+    if (modloader == Modloader::Quilt
+        || modloader == Modloader::Fabric
+        || modloader == Modloader::Forge)
+    {
+        println!("Enter modloader version: ");
+        io::stdin()
+            .read_line(&mut modloader_version)
+            .expect("error: unable to read user input");
+        modloader_version = modloader_version.trim().to_owned();
+    }
 
     let project_dir = ProjectDirs::from("dev", "HelixLauncher", "hxmc").unwrap();
     let instances_path = project_dir.data_dir().join("instances");
 
     fs::create_dir_all(&instances_path)?;
 
-    Instance::new(name, version, InstanceLaunch::default(), &instances_path)?;
+    Instance::new(
+        name,
+        version,
+        InstanceLaunch::default(),
+        &instances_path,
+        modloader,
+        match modloader_version {
+            String::new() => None,
+            _ => Some(modloader_version),
+        },
+    )?;
 
     Ok(())
 }

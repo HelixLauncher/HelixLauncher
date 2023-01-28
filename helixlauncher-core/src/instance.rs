@@ -19,6 +19,13 @@ pub enum InstanceManagerError {
     NotAnInstance,
 }
 
+pub enum Modloader {
+    Quilt,
+    Fabric,
+    Forge,
+    Vanilla,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Instance {
     pub name: String,
@@ -66,13 +73,29 @@ impl Instance {
         mc_version: String,
         launch: InstanceLaunch,
         instances_dir: &Path,
+        modloader: Modloader,
+        modloader_version: Option<String>,
     ) -> Result<Self, InstanceManagerError> {
+        let modloader_component_string: String = match modloader {
+            Modloader::Fabric => String::from("net.fabricmc.fabric-loader"),
+            Modloader::Quilt => String::from("org.quiltmc.quilt-loader"),
+            Modloader::Forge => String::from("net.minecraftforge.forge"),
+            Modloader::Vanilla => String::from(""),
+        };
+        let components = vec![Component { id: String::from("net.minecraft"), version: mc_version}, match modloader_component_string => {
+            String::from("") => {
+
+            }
+            _ => {
+                Component {
+                    id: modloader_component_string,
+                    version: modloader_version.unwrap()
+                }
+            }
+        }];
         let instance = Self {
             name,
-            components: vec![Component {
-                id: String::from("net.minecraft"),
-                version: mc_version,
-            }],
+            components,
             launch,
         };
 
