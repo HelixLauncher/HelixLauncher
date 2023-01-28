@@ -11,6 +11,7 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 use directories::ProjectDirs;
 use helixlauncher_core::instance::Instance;
 use helixlauncher_core::instance::InstanceLaunch;
+use helixlauncher_core::instance::Modloader;
 
 #[derive(Parser, Debug)]
 struct HelixLauncher {
@@ -89,7 +90,7 @@ async fn create_instance() -> Result<()> {
         .read_line(&mut modloader_string)
         .expect("error: unable to read user input");
     modloader_string = modloader_string.trim().to_lowercase().to_owned();
-    let modloader_str = modloader_string.to_str();
+    let modloader_str = modloader_string.as_str();
     let modloader = match modloader_str {
         "quilt" | "quiltmc" => Modloader::Quilt,
         "fabric" | "fabricmc" => Modloader::Fabric,
@@ -108,32 +109,31 @@ async fn create_instance() -> Result<()> {
         println!("warn: using vanilla as modloader is invalid")
     }
 
-    let mut modloader_version = String::new();
-
-    if (modloader == Modloader::Quilt
-        || modloader == Modloader::Fabric
-        || modloader == Modloader::Forge)
+    let mut modloader_version = String::from("invalid_modloader_version_0x1");
+    
+    if matches!(modloader, Modloader::Quilt)
+        || matches!(modloader, Modloader::Fabric)
+        || matches!(modloader, Modloader::Forge)
     {
         println!("Enter modloader version: ");
         io::stdin()
             .read_line(&mut modloader_version)
             .expect("error: unable to read user input");
-        modloader_version = modloader_version.trim().to_owned();
+        modloader_version = modloader_version.trim().to_owned().replace("invalid_modloader_version_0x1", "");
     }
 
     let project_dir = ProjectDirs::from("dev", "HelixLauncher", "hxmc").unwrap();
     let instances_path = project_dir.data_dir().join("instances");
 
     fs::create_dir_all(&instances_path)?;
-
     Instance::new(
         name,
         version,
         InstanceLaunch::default(),
         &instances_path,
         modloader,
-        match modloader_version {
-            String::new() => None,
+        match modloader_version.as_str() {
+            "invalid_modloader_version_0x1" => None,
             _ => Some(modloader_version),
         },
     )?;
