@@ -83,21 +83,27 @@ impl Instance {
             Modloader::Vanilla => String::from(""),
         };
 
-        let mut components = vec![Component { id: String::from("net.minecraft"), version: mc_version}];
+        let mut components = vec![Component {
+            id: String::from("net.minecraft"),
+            version: mc_version,
+        }];
         /*match modloader_component_string {
             String::from("") => {
-                
+
             }
             _ => {
                 vec![Component { id: String::from("net.minecraft"), version: mc_version, Component {
                     id: modloader_component_string,
                     version: modloader_version.unwrap()
                 }}]
-                
+
             }
         };*/
         if modloader_component_string != String::from("") {
-            components.append(&mut vec![Component { id: modloader_component_string, version: modloader_version.unwrap()}]);
+            components.append(&mut vec![Component {
+                id: modloader_component_string,
+                version: modloader_version.unwrap(),
+            }]);
         }
         let instance = Self {
             name,

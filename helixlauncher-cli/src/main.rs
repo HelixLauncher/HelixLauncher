@@ -110,7 +110,7 @@ async fn create_instance() -> Result<()> {
     }
 
     let mut modloader_version = String::from("invalid_modloader_version_0x1");
-    
+
     if matches!(modloader, Modloader::Quilt)
         || matches!(modloader, Modloader::Fabric)
         || matches!(modloader, Modloader::Forge)
@@ -119,7 +119,10 @@ async fn create_instance() -> Result<()> {
         io::stdin()
             .read_line(&mut modloader_version)
             .expect("error: unable to read user input");
-        modloader_version = modloader_version.trim().to_owned().replace("invalid_modloader_version_0x1", "");
+        modloader_version = modloader_version
+            .trim()
+            .to_owned()
+            .replace("invalid_modloader_version_0x1", "");
     }
 
     let project_dir = ProjectDirs::from("dev", "HelixLauncher", "hxmc").unwrap();
