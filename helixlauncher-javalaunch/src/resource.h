@@ -1,0 +1,1 @@
+../../share/resource.h

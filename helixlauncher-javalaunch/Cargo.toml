@@ -1,0 +1,19 @@
+[package]
+name = "helixlauncher-javalaunch"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+jni = { git = "https://github.com/jni-rs/jni-rs.git", version = "0.21.0-alpha.0", features = ["invocation"] }
+libloading = "0.7"
+local-encoding-ng = "0.1.0"
+
+[build-dependencies]
+cc = "1.0.78"
+
+#[target."cfg(windows)".build-dependencies]
+embed-resource = "1.8.0"

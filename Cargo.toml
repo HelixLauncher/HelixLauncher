@@ -3,6 +3,8 @@ members = [
     "helixlauncher-gui",
     "helixlauncher-cli",
     "helixlauncher-core",
+    "helixlauncher-java",
+    "helixlauncher-javalaunch",
 ]
 
 [workspace.package]
@@ -11,3 +13,10 @@ edition = "2021"
 repository = "https://github.com/HelixLauncher/HelixLauncher"
 license = "MPL-2.0"
 description = "Minecraft launching library built on Rust"
+
+[profile.release]
+lto = true
+
+[profile.release-javalaunch]
+inherits = "release"
+panic = "abort"
