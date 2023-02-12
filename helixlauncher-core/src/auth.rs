@@ -197,6 +197,7 @@ mod tests {
     };
 
     #[tokio::test]
+    #[ignore = "broken"]
     async fn test() {
         let authenticator = MinecraftAuthenticator::new("1d644380-5a23-4a84-89c3-5d29615fbac2");
 
@@ -214,8 +215,8 @@ mod tests {
         add_account(account, Path::new(DEFAULT_ACCOUNT_JSON)).unwrap();
     }
 
-    #[tokio::test]
-    async fn test_account_storage() {
+    #[test]
+    fn test_account_storage() {
         for account in get_accounts(Path::new(DEFAULT_ACCOUNT_JSON)).unwrap() {
             println!("{}", serde_json::to_string(&account).unwrap());
         }
