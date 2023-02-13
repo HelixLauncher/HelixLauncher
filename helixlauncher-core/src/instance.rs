@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File},
-    io::BufReader,
+    io::{self, BufReader},
     path::Path,
 };
 
@@ -35,8 +35,9 @@ pub struct Instance {
 
 #[derive(Default, Serialize, Deserialize, Debug)]
 pub struct InstanceLaunch {
-    pub args: Vec<String>,
-    pub jvm_args: Vec<String>,
+    // Options are taken from launcher settings if absent
+    pub args: Option<Vec<String>>,
+    pub jvm_args: Option<Vec<String>>,
     pub prelaunch_command: Option<String>,
     pub postlaunch_command: Option<String>,
     pub allocation: Option<RamAllocation>,
@@ -47,8 +48,8 @@ type Mebibytes = u32;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct RamAllocation {
-    min: Mebibytes,
-    max: Mebibytes,
+    pub min: Mebibytes,
+    pub max: Mebibytes,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -57,7 +58,7 @@ pub struct Component {
     pub version: String,
 }
 
-const INSTX_CONFIG_NAME: &str = "instance.helix.json";
+const INSTANCE_CONFIG_NAME: &str = "instance.helix.json";
 const SUBDIR_CONFIG_NAME: &str = "directory.helix.json";
 
 impl Instance {
@@ -65,7 +66,7 @@ impl Instance {
     ///
     /// ```
     /// let name = "New instance";
-    /// let instances_dir = PathBuf::from(r"/home/user/.launcher/instance/")
+    /// let instances_dir = PathBuf::from(r"/home/user/.launcher/instance/");
     /// let instance = Instance::new(name, InstanceLaunch::default());
     /// ```
     pub fn new(
@@ -76,34 +77,24 @@ impl Instance {
         modloader: Modloader,
         modloader_version: Option<String>,
     ) -> Result<Self, InstanceManagerError> {
-        let modloader_component_string: String = match modloader {
-            Modloader::Fabric => String::from("net.fabricmc.fabric-loader"),
-            Modloader::Quilt => String::from("org.quiltmc.quilt-loader"),
-            Modloader::Forge => String::from("net.minecraftforge.forge"),
-            Modloader::Vanilla => String::from(""),
+        // TODO: maybe make this more generic? and let the caller specify the components
+        let modloader_component_id = match modloader {
+            Modloader::Fabric => Some("net.fabricmc.fabric-loader"),
+            Modloader::Quilt => Some("org.quiltmc.quilt-loader"),
+            Modloader::Forge => Some("net.minecraftforge.forge"),
+            Modloader::Vanilla => None,
         };
 
         let mut components = vec![Component {
             id: String::from("net.minecraft"),
             version: mc_version,
         }];
-        /*match modloader_component_string {
-            String::from("") => {
 
-            }
-            _ => {
-                vec![Component { id: String::from("net.minecraft"), version: mc_version, Component {
-                    id: modloader_component_string,
-                    version: modloader_version.unwrap()
-                }}]
-
-            }
-        };*/
-        if modloader_component_string != String::from("") {
-            components.append(&mut vec![Component {
-                id: modloader_component_string,
+        if let Some(modloader_component_id) = modloader_component_id {
+            components.push(Component {
+                id: String::from(modloader_component_id),
                 version: modloader_version.unwrap(),
-            }]);
+            });
         }
         let instance = Self {
             name,
@@ -121,7 +112,7 @@ impl Instance {
         fs::create_dir_all(instance_dir.join(".minecraft"))?;
 
         // create instance config
-        let instance_json = File::create(instance_dir.join(INSTX_CONFIG_NAME))?;
+        let instance_json = File::create(instance_dir.join(INSTANCE_CONFIG_NAME))?;
         serde_json::to_writer_pretty(instance_json, &instance)?;
 
         Ok(instance)
@@ -130,21 +121,19 @@ impl Instance {
     /// Fetch instance from its path.
     ///
     /// ```
-    /// let path = PathBuf::from(r"/home/user/.launcher/instance/minecraft");
-    /// let instance = Instance::from(path);
+    /// # use helixlauncher_core::instance::Instance;
+    /// let instance = Instance::from_path(r"/home/user/.launcher/instance/minecraft");
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, InstanceManagerError> {
         // search for top-level config file, return error if not there
-        match fs::read_dir(path)?
-            .filter_map(|x| x.ok())
-            .find(|file| file.file_name() == INSTX_CONFIG_NAME)
-        {
-            Some(config) => {
-                let reader = BufReader::new(File::open(config.path())?);
-                Ok(serde_json::from_reader(reader)?)
+        Ok(serde_json::from_reader(BufReader::new(match File::open(
+            path.as_ref().join(INSTANCE_CONFIG_NAME),
+        ) {
+            Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                Err(InstanceManagerError::NotAnInstance)
             }
-            None => Err(InstanceManagerError::NotAnInstance),
-        }
+            r => r.map_err(InstanceManagerError::from),
+        }?))?)
     }
 
     pub fn list_instances<P: AsRef<Path>>(
