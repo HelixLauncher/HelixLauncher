@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, fs};
 
 use helixlauncher_meta::{
     component::{self, Component, ConditionalClasspathEntry, Hash, Platform},
@@ -7,16 +7,19 @@ use helixlauncher_meta::{
 };
 use indexmap::IndexMap;
 
-use crate::instance;
+use crate::{config::Config, instance};
 
 const META: &str = "https://meta.helixlauncher.dev/";
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MergedComponents {
     pub classpath: Vec<GradleSpecifier>,
     pub natives: Vec<Native>,
     pub artifacts: HashMap<GradleSpecifier, Artifact>,
     pub traits: Vec<component::Trait>,
+    pub assets: Option<component::Assets>,
+    pub game_jar: GradleSpecifier,
+    pub jarmods: Vec<GradleSpecifier>,
 }
 
 #[derive(Debug)]
@@ -33,6 +36,7 @@ pub enum Artifact {
 // TODO: proper error (and progress?) handling
 // TODO: this doesn't handle stuff like Rosetta or running x86 Java on x86_64 at all
 pub async fn merge_components(
+    config: &Config,
     components: &Vec<instance::Component>,
 ) -> Result<MergedComponents, Box<dyn Error>> {
     let mut classpath = IndexMap::new();
@@ -45,7 +49,7 @@ pub async fn merge_components(
     let mut main_class = None;
 
     for component in components {
-        let component = fetch_component(&component.id, &component.version).await?;
+        let component = fetch_component(config, &component.id, &component.version).await?;
         for trait_ in component.traits {
             if !traits.contains(&trait_) {
                 traits.push(trait_);
@@ -100,7 +104,33 @@ pub async fn merge_components(
         natives,
         artifacts,
         traits,
+        game_jar: game_jar.unwrap(),
+        assets,
+        jarmods: jarmods.into_values().collect(),
     })
+}
+
+pub async fn prepare_launch(instance: &instance::Instance, components: &MergedComponents) {
+    // TODO: parallelize
+    let mut needed_artifacts = HashMap::with_capacity(components.artifacts.len());
+    for library in &components.classpath {
+        needed_artifacts
+            .entry(library)
+            .or_insert(&components.artifacts[&library]);
+    }
+    needed_artifacts
+        .entry(&components.game_jar)
+        .or_insert(&components.artifacts[&components.game_jar]);
+    for jarmod in &components.jarmods {
+        needed_artifacts
+            .entry(&jarmod)
+            .or_insert(&components.artifacts[&jarmod]);
+    }
+    for native in &components.natives {
+        needed_artifacts
+            .entry(&native.name)
+            .or_insert(&components.artifacts[&native.name]);
+    }
 }
 
 fn platform_matches(platform: Platform) -> bool {
@@ -115,12 +145,36 @@ fn platform_matches(platform: Platform) -> bool {
     true
 }
 
-async fn fetch_component(id: &str, version: &str) -> Result<Component, Box<dyn Error>> {
-    // TODO: caching
-    Ok(reqwest::get(format!("{META}{id}/{version}.json"))
-        .await?
-        .json()
-        .await?)
+async fn fetch_component(
+    config: &Config,
+    id: &str,
+    version: &str,
+) -> Result<Component, Box<dyn Error>> {
+    // TODO: better caching
+    let component_data_result = async {
+        reqwest::get(format!("{META}{id}/{version}.json"))
+            .await?
+            .bytes()
+            .await
+    }
+    .await;
+    let mut path = config.get_base_path().join("meta");
+    path.push(id);
+    fs::create_dir_all(&path)?;
+    path.push(format!("{version}.json"));
+    let component_data = match component_data_result {
+        Err(e) => {
+            match fs::read(path) {
+                Err(_) => Err(e)?,
+                Ok(r) => r,
+            }
+        },
+        Ok(r) => {
+            fs::write(path, &r)?;
+            r.into()
+        },
+    };
+    Ok(serde_json::from_slice(&component_data)?)
 }
 
 pub async fn version_exists(path: String, version: String) -> bool {

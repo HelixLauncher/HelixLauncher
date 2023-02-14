@@ -7,6 +7,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::env;
+use std::io::BufReader;
 use std::path::PathBuf;
 use std::{
     fs::{self, File},
@@ -17,11 +18,29 @@ pub const CONFIG_NAME: &str = "config.helix.json";
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
-    // the path doesn't need to be saved in the file,
-    // but it is useful to keep around imo
+    // the base path shouldn't be saved in the file, as the data dir may move
     #[serde(skip)]
-    path: PathBuf, // profiles/instances
-                   // settings... feel free to add fields as required
+    base_path: PathBuf,
+
+    // settings... feel free to add fields as required
+    #[serde(default = "instances_default")]
+    instances_dir: PathBuf,
+    #[serde(default = "libraries_default")]
+    libraries_dir: PathBuf,
+    #[serde(default = "assets_default")]
+    assets_dir: PathBuf,
+}
+
+fn instances_default() -> PathBuf {
+    PathBuf::from("instances")
+}
+
+fn libraries_default() -> PathBuf {
+    PathBuf::from("libraries")
+}
+
+fn assets_default() -> PathBuf {
+    PathBuf::from("assets")
 }
 
 impl Config {
@@ -31,8 +50,6 @@ impl Config {
         path.push(name);
 
         let config = if !path.exists() {
-            // Could return an error if the dir already exists,
-            // but we don't care about that
             if let Err(e) = fs::create_dir_all(&path) {
                 if e.kind() == io::ErrorKind::PermissionDenied {
                     return Err(Error::PermissionDenied(e));
@@ -50,26 +67,47 @@ impl Config {
     }
 
     pub fn save_config(&self) -> Result<(), Error> {
-        let filepath = self.path.join(CONFIG_NAME);
+        let filepath = self.base_path.join(CONFIG_NAME);
 
-        let mut file = File::options().write(true).create(true).open(filepath)?;
+        let mut file = File::create(filepath)?;
         serde_json::to_writer_pretty(&mut file, self)?;
 
         Ok(())
     }
 
-    pub fn read_config<P: Into<PathBuf>>(path: P) -> io::Result<Self> {
-        let path: PathBuf = path.into();
+    pub fn read_config<P: Into<PathBuf>>(base_path: P) -> io::Result<Self> {
+        let base_path: PathBuf = base_path.into();
 
-        let file = File::open(path.join(CONFIG_NAME))?;
-        let mut read: Self = serde_json::from_reader(file)?;
-        read.path = path;
+        let file = File::open(base_path.join(CONFIG_NAME))?;
+        let mut read: Self = serde_json::from_reader(BufReader::new(file))?;
+        read.base_path = base_path;
 
         Ok(read)
     }
 
-    fn default_config(path: PathBuf) -> Self {
-        Self { path }
+    fn default_config(base_path: PathBuf) -> Self {
+        Self {
+            base_path,
+            instances_dir: PathBuf::from("instances"),
+            libraries_dir: PathBuf::from("libraries"),
+            assets_dir: PathBuf::from("assets"),
+        }
+    }
+
+    pub fn get_base_path(&self) -> &PathBuf {
+        &self.base_path
+    }
+
+    pub fn get_instances_path(&self) -> PathBuf {
+        self.base_path.join(&self.instances_dir)
+    }
+
+    pub fn get_libraries_path(&self) -> PathBuf {
+        self.base_path.join(&self.libraries_dir)
+    }
+
+    pub fn get_assets_path(&self) -> PathBuf {
+        self.base_path.join(&self.assets_dir)
     }
 }
 
@@ -111,29 +149,7 @@ impl From<serde_json::Error> for Error {
 }
 
 fn get_base_path() -> PathBuf {
-    // We should be using the dirs crate to get the base path.
-    // This works on almost all platforms, especially windows and macOS.
-
-    // See here: https://docs.rs/dirs/latest/dirs/fn.data_dir.html
-
     dirs::data_dir()
         .or_else(|| env::current_dir().ok())
         .unwrap()
-    /*
-    // This logic isn't perfect and could crash in its current state
-    if cfg!(windows) {
-        env::var("APPDATA").unwrap().into()
-    } else {
-        let home = env::var("HOME");
-
-        match home {
-            Ok(ok) => {
-                let mut path: PathBuf = ok.into();
-                path.push(".local");
-                path.push("share");
-                path
-            }
-            Err(_) => env::current_dir().unwrap(),
-        }
-    } */
 }
