@@ -1,11 +1,22 @@
-use std::{collections::HashMap, error::Error, fs};
+use std::{
+    borrow::{Borrow, Cow},
+    collections::HashMap,
+    error::Error,
+    fs, io,
+    path::PathBuf,
+};
 
+use digest::Digest;
 use helixlauncher_meta::{
     component::{self, Component, ConditionalClasspathEntry, Hash, Platform},
     index::Index,
     util::{GradleSpecifier, CURRENT_ARCH, CURRENT_OS},
 };
+
+use hex::ToHex;
 use indexmap::IndexMap;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 use crate::{config::Config, instance};
 
@@ -110,26 +121,111 @@ pub async fn merge_components(
     })
 }
 
-pub async fn prepare_launch(instance: &instance::Instance, components: &MergedComponents) {
+fn check_hash(buf: &[u8], hash: &component::Hash) -> bool {
+    match hash {
+        Hash::SHA1(hash) => *hash == sha1::Sha1::digest(buf).encode_hex::<String>(),
+        Hash::SHA256(hash) => *hash == sha2::Sha256::digest(buf).encode_hex::<String>(),
+    }
+}
+
+fn check_file(path: &PathBuf, size: u32, hash: &component::Hash) -> Result<bool, io::Error> {
+    // This can be tricked by modifying or deleting the file after or while it is being processed
+    // during launch, but let's not consider that an issue.
+
+    // TODO: maybe not read in the entire file at once?
+    if !path.try_exists()? {
+        return Ok(false);
+    }
+
+    let file = match fs::read(path) {
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+        r => r,
+    }?;
+    Ok(file.len() == (size as usize) && check_hash(&file, hash))
+}
+
+pub async fn prepare_launch(
+    config: &Config,
+    instance: &instance::Instance,
+    components: &MergedComponents,
+) -> Result<(), Box<dyn Error>> {
     // TODO: parallelize
     let mut needed_artifacts = HashMap::with_capacity(components.artifacts.len());
     for library in &components.classpath {
         needed_artifacts
             .entry(library)
-            .or_insert(&components.artifacts[&library]);
+            .or_insert(&components.artifacts[library]);
     }
     needed_artifacts
         .entry(&components.game_jar)
         .or_insert(&components.artifacts[&components.game_jar]);
     for jarmod in &components.jarmods {
         needed_artifacts
-            .entry(&jarmod)
-            .or_insert(&components.artifacts[&jarmod]);
+            .entry(jarmod)
+            .or_insert(&components.artifacts[jarmod]);
     }
     for native in &components.natives {
         needed_artifacts
             .entry(&native.name)
             .or_insert(&components.artifacts[&native.name]);
+    }
+
+    for (name, artifact) in needed_artifacts.into_iter() {
+        match artifact {
+            Artifact::Download { url, size, hash } => {
+                let path = artifact.get_path(name, config, instance);
+                if !check_file(&path, *size, hash)? {
+                    fs::write(path, reqwest::get(url).await?.bytes().await?)?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+impl Artifact {
+    fn clean_name(name: &str) -> Cow<str> {
+        lazy_static! {
+            static ref CLEAN_NAME_REGEX: Regex = Regex::new(r"[^a-zA-Z0-9.\-_]|^\.").unwrap();
+        }
+        CLEAN_NAME_REGEX.replace_all(name, "__")
+    }
+
+    fn get_path(
+        &self,
+        name: &GradleSpecifier,
+        config: &Config,
+        instance: &instance::Instance,
+    ) -> PathBuf {
+        match self {
+            Self::Download {
+                url: _,
+                size: _,
+                hash: _,
+            } => {
+                let mut path = config.get_libraries_path();
+                for part in name.group.split('.') {
+                    path.push::<&str>(&Self::clean_name(part));
+                }
+                path.push::<&str>(&Self::clean_name(&name.artifact));
+                path.push::<&str>(&Self::clean_name(&name.version));
+                path.push::<&str>(
+                    Self::clean_name(&format!(
+                        "{}-{}{}.{}",
+                        name.artifact,
+                        name.version,
+                        if let Some(ref classifier) = &name.classifier {
+                            format!("-{}", classifier)
+                        } else {
+                            String::new()
+                        },
+                        name.extension
+                    ))
+                    .borrow(),
+                );
+                path
+            }
+        }
     }
 }
 
@@ -163,22 +259,20 @@ async fn fetch_component(
     fs::create_dir_all(&path)?;
     path.push(format!("{version}.json"));
     let component_data = match component_data_result {
-        Err(e) => {
-            match fs::read(path) {
-                Err(_) => Err(e)?,
-                Ok(r) => r,
-            }
+        Err(e) => match fs::read(path) {
+            Err(_) => Err(e)?,
+            Ok(r) => r,
         },
         Ok(r) => {
             fs::write(path, &r)?;
             r.into()
-        },
+        }
     };
     Ok(serde_json::from_slice(&component_data)?)
 }
 
 pub async fn version_exists(path: String, version: String) -> bool {
-    let response = reqwest::get(format!("{META}{path}/index.json",))
+    let response = reqwest::get(format!("{META}{path}/index.json"))
         .await
         .expect("an error occurred while fetching data from meta");
 
