@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File},
     io::{self, BufReader},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use serde::{Deserialize, Serialize};
@@ -26,8 +26,14 @@ pub enum Modloader {
     Vanilla,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Debug)]
 pub struct Instance {
+    pub path: PathBuf,
+    pub config: InstanceConfig,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct InstanceConfig {
     pub name: String,
     pub components: Vec<Component>,
     pub launch: InstanceLaunch,
@@ -96,14 +102,9 @@ impl Instance {
                 version: modloader_version.unwrap(),
             });
         }
-        let instance = Self {
-            name,
-            components,
-            launch,
-        };
 
         // make instance folder & skeleton (try to avoid collisions)
-        let instance_dir = instances_dir.join(&instance.name);
+        let instance_dir = instances_dir.join(&name);
         if instance_dir.try_exists()? {
             todo!("Resolve folder collision (1)");
         }
@@ -111,9 +112,20 @@ impl Instance {
         // make the .minecraft dir & instance dir in one line
         fs::create_dir_all(instance_dir.join(".minecraft"))?;
 
+        let instance_json_path = instance_dir.join(INSTANCE_CONFIG_NAME);
+
+        let instance = Self {
+            path: instance_dir,
+            config: InstanceConfig {
+                name,
+                components,
+                launch,
+            },
+        };
+
         // create instance config
-        let instance_json = File::create(instance_dir.join(INSTANCE_CONFIG_NAME))?;
-        serde_json::to_writer_pretty(instance_json, &instance)?;
+        let instance_json = File::create(instance_json_path)?;
+        serde_json::to_writer_pretty(instance_json, &instance.config)?;
 
         Ok(instance)
     }
@@ -125,15 +137,19 @@ impl Instance {
     /// let instance = Instance::from_path(r"/home/user/.launcher/instance/minecraft");
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, InstanceManagerError> {
+        let path = PathBuf::from(path.as_ref());
         // search for top-level config file, return error if not there
-        Ok(serde_json::from_reader(BufReader::new(match File::open(
-            path.as_ref().join(INSTANCE_CONFIG_NAME),
-        ) {
-            Err(e) if e.kind() == io::ErrorKind::NotFound => {
-                Err(InstanceManagerError::NotAnInstance)
-            }
-            r => r.map_err(InstanceManagerError::from),
-        }?))?)
+        Ok(Instance {
+            config: serde_json::from_reader(BufReader::new(match File::open(
+                &path.join(INSTANCE_CONFIG_NAME),
+            ) {
+                Err(e) if e.kind() == io::ErrorKind::NotFound => {
+                    Err(InstanceManagerError::NotAnInstance)
+                }
+                r => r.map_err(InstanceManagerError::from),
+            }?))?,
+            path,
+        })
     }
 
     pub fn list_instances<P: AsRef<Path>>(

@@ -1,8 +1,9 @@
 use std::{
     borrow::{Borrow, Cow},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     error::Error,
-    fs, io,
+    fs::{self, File},
+    io,
     path::PathBuf,
 };
 
@@ -74,12 +75,15 @@ pub async fn merge_components(
                 });
             }
         }
-        for jarmod in component.jarmods {
-            let unversioned_name = GradleSpecifier {
-                version: String::from(""),
-                ..jarmod.clone()
-            };
-            jarmods.entry(unversioned_name).or_insert(jarmod);
+        // TODO: should we include jarmods after a game jar was defined?
+        if game_jar.is_none() {
+            for jarmod in component.jarmods {
+                let unversioned_name = GradleSpecifier {
+                    version: String::from(""),
+                    ..jarmod.clone()
+                };
+                jarmods.entry(unversioned_name).or_insert(jarmod);
+            }
         }
         for classpath_entry in component.classpath {
             let name = match classpath_entry {
@@ -170,16 +174,46 @@ pub async fn prepare_launch(
             .or_insert(&components.artifacts[&native.name]);
     }
 
+    let mut paths = HashMap::with_capacity(needed_artifacts.len());
+
+    // TODO: this may need some ordering for artifacts with processing dependencies
+    // TODO: temporary files for "atomic" writes?
     for (name, artifact) in needed_artifacts.into_iter() {
-        match artifact {
-            Artifact::Download { url, size, hash } => {
-                let path = artifact.get_path(name, config, instance);
-                if !check_file(&path, *size, hash)? {
-                    fs::write(path, reqwest::get(url).await?.bytes().await?)?;
+        paths.insert(
+            name,
+            match artifact {
+                Artifact::Download { url, size, hash } => {
+                    let path = artifact.get_path(name, config, instance);
+                    if !check_file(&path, *size, hash)? {
+                        fs::write(&path, reqwest::get(url).await?.bytes().await?)?;
+                    }
+                    path
+                }
+            },
+        );
+    }
+
+    let game_jar = if !components.jarmods.is_empty() {
+        let mut minecraft_jar = instance.path.join(".minecraft");
+        minecraft_jar.push("bin");
+        minecraft_jar.push("minecraft.jar");
+        let mut zip_writer = zip::ZipWriter::new(File::create(&minecraft_jar)?);
+        let mut written_files = HashSet::new();
+        for jarmod in &components.jarmods {
+            let file = &paths[jarmod];
+            let mut zip = zip::ZipArchive::new(File::open(file)?)?;
+            for i in 0..zip.len() {
+                let file = zip.by_index_raw(i)?;
+                if written_files.insert(file.name().to_string()) {
+                    zip_writer.raw_copy_file(file)?;
                 }
             }
         }
-    }
+        Cow::Owned(minecraft_jar)
+    } else {
+        Cow::Borrowed(&paths[&components.game_jar])
+    };
+
     Ok(())
 }
 
