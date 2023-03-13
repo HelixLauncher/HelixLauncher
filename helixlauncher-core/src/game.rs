@@ -3,7 +3,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     fs::{self, File},
-    io,
+    io::{self, Read},
     path::{Path, PathBuf},
 };
 
@@ -82,6 +82,9 @@ pub enum PrepareError {
     #[error("Invalid filename found: {name}")]
     InvalidFilename { name: String },
 }
+
+#[derive(Debug)]
+pub struct PreparedLaunch {}
 
 // TODO: proper error (and progress?) handling
 // TODO: this doesn't handle stuff like Rosetta or running x86 Java on x86_64 at all
@@ -214,7 +217,7 @@ pub async fn prepare_launch(
     config: &Config,
     instance: &instance::Instance,
     components: &MergedComponents,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<PreparedLaunch, Box<dyn Error>> {
     // TODO: parallelize
     let mut needed_artifacts = HashMap::with_capacity(components.artifacts.len());
     for library in &components.classpath {
@@ -319,9 +322,27 @@ pub async fn prepare_launch(
                 copy_file(&asset_path, &unpack_path.join(name))?;
             }
         }
+
+        let natives_path = instance.path.join("natives");
+
+        for native in &components.natives {
+            let file_path = &paths[&native.name];
+            let mut zip = zip::ZipArchive::new(File::open(file_path)?)?;
+            for i in 0..zip.len() {
+                // TODO: are ZIP bombs an issue here? if this code gets invoked, code from the
+                // instance and components is about to get executed anyways
+                let mut entry = zip.by_index(i)?;
+                let name = entry.name().to_string(); // need to copy, otherwise entry is immutably
+                                                     // borrowed, preventing the read below
+                if !check_path(&name) {
+                    return Err(PrepareError::InvalidFilename { name })?;
+                }
+                io::copy(&mut entry, &mut File::create(natives_path.join(name))?)?;
+            }
+        }
     }
 
-    Ok(())
+    Ok(PreparedLaunch {})
 }
 
 impl Artifact {
