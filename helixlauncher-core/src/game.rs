@@ -4,7 +4,7 @@ use std::{
     error::Error,
     fs::{self, File},
     io,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use digest::Digest;
@@ -18,8 +18,14 @@ use hex::ToHex;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde::Deserialize;
+use thiserror::Error;
 
-use crate::{config::Config, instance};
+use crate::{
+    config::Config,
+    instance,
+    util::{check_path, copy_file},
+};
 
 const META: &str = "https://meta.helixlauncher.dev/";
 
@@ -43,6 +49,38 @@ pub struct Native {
 #[derive(Debug)]
 pub enum Artifact {
     Download { url: String, size: u32, hash: Hash },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AssetIndex {
+    #[serde(default)]
+    pub map_to_resources: bool,
+    #[serde(default)]
+    pub r#virtual: bool,
+    #[serde()]
+    pub objects: HashMap<String, Asset>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct Asset {
+    pub hash: String,
+    pub size: u32,
+}
+
+#[derive(Debug, Error)]
+pub enum PrepareError {
+    #[error("Download of {url} failed: expected file with {expected_hash} and size {expected_size}, found file with hash {actual_hash} and size {actual_size}")]
+    InvalidFile {
+        url: String,
+        expected_hash: component::Hash,
+        expected_size: u32,
+        actual_hash: String,
+        actual_size: usize,
+    },
+    #[error("Invalid filename found: {name}")]
+    InvalidFilename { name: String },
 }
 
 // TODO: proper error (and progress?) handling
@@ -125,14 +163,15 @@ pub async fn merge_components(
     })
 }
 
-fn check_hash(buf: &[u8], hash: &component::Hash) -> bool {
-    match hash {
-        Hash::SHA1(hash) => *hash == sha1::Sha1::digest(buf).encode_hex::<String>(),
-        Hash::SHA256(hash) => *hash == sha2::Sha256::digest(buf).encode_hex::<String>(),
-    }
+fn check_hash(buf: &[u8], hash: &component::Hash) -> (bool, String) {
+    let (expected, actual) = match hash {
+        Hash::SHA1(hash) => (hash, sha1::Sha1::digest(buf).encode_hex::<String>()),
+        Hash::SHA256(hash) => (hash, sha2::Sha256::digest(buf).encode_hex::<String>()),
+    };
+    (expected == &actual, actual)
 }
 
-fn check_file(path: &PathBuf, size: u32, hash: &component::Hash) -> Result<bool, io::Error> {
+fn check_file(path: &Path, size: u32, hash: &component::Hash) -> Result<bool, io::Error> {
     // This can be tricked by modifying or deleting the file after or while it is being processed
     // during launch, but let's not consider that an issue.
 
@@ -145,7 +184,30 @@ fn check_file(path: &PathBuf, size: u32, hash: &component::Hash) -> Result<bool,
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
         r => r,
     }?;
-    Ok(file.len() == (size as usize) && check_hash(&file, hash))
+    Ok(file.len() == (size as usize) && check_hash(&file, hash).0)
+}
+
+async fn download_file(
+    path: &Path,
+    url: &str,
+    size: u32,
+    hash: &component::Hash,
+) -> Result<(), Box<dyn Error>> {
+    if !check_file(path, size, hash)? {
+        let data = reqwest::get(url).await?.bytes().await?;
+        let (hash_matches, actual_hash) = check_hash(&data, hash);
+        if data.len() != size as usize || !hash_matches {
+            return Err(PrepareError::InvalidFile {
+                url: url.to_string(),
+                expected_hash: hash.clone(),
+                expected_size: size,
+                actual_hash,
+                actual_size: data.len(),
+            })?;
+        }
+        fs::write(path, data)?;
+    }
+    Ok(())
 }
 
 pub async fn prepare_launch(
@@ -184,9 +246,7 @@ pub async fn prepare_launch(
             match artifact {
                 Artifact::Download { url, size, hash } => {
                     let path = artifact.get_path(name, config, instance);
-                    if !check_file(&path, *size, hash)? {
-                        fs::write(&path, reqwest::get(url).await?.bytes().await?)?;
-                    }
+                    download_file(&path, url, *size, hash).await?;
                     path
                 }
             },
@@ -213,6 +273,53 @@ pub async fn prepare_launch(
     } else {
         Cow::Borrowed(&paths[&components.game_jar])
     };
+
+    if let Some(assets) = &components.assets {
+        let assets_dir = config.get_assets_path();
+        let mut index_path = assets_dir.join("indexes");
+        index_path.push(format!("{}.json", assets.id));
+        download_file(
+            &assets_dir
+                .join("indexes")
+                .join(format!("{}.json", assets.id)),
+            &assets.url,
+            assets.size,
+            &Hash::SHA1(assets.sha1.to_string()),
+        )
+        .await?;
+        let index: AssetIndex = serde_json::from_slice(&fs::read(index_path)?)?;
+        let unpack_path = if index.map_to_resources {
+            Some(instance.path.join("resources"))
+        } else if index.r#virtual {
+            let mut virtual_dir = instance.path.join("assets");
+            virtual_dir.push("virtual");
+            virtual_dir.push(&assets.id);
+            Some(virtual_dir)
+        } else {
+            None
+        };
+        for (name, Asset { hash, size }) in index.objects {
+            let hash_part = &hash[..2];
+            let mut asset_path = assets_dir.join("objects");
+            asset_path.push(hash_part);
+            asset_path.push(&hash);
+            download_file(
+                &asset_path,
+                &format!("https://resources.download.minecraft.net/{hash_part}/{hash}"),
+                size,
+                &Hash::SHA1(hash),
+            )
+            .await?;
+            if let Some(unpack_path) = &unpack_path {
+                if !check_path(&name) {
+                    return Err(PrepareError::InvalidFilename {
+                        name: name.to_string(),
+                    })?;
+                }
+                copy_file(&asset_path, &unpack_path.join(name))?;
+            }
+        }
+    }
 
     Ok(())
 }

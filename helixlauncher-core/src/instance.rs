@@ -141,7 +141,7 @@ impl Instance {
         // search for top-level config file, return error if not there
         Ok(Instance {
             config: serde_json::from_reader(BufReader::new(match File::open(
-                &path.join(INSTANCE_CONFIG_NAME),
+                path.join(INSTANCE_CONFIG_NAME),
             ) {
                 Err(e) if e.kind() == io::ErrorKind::NotFound => {
                     Err(InstanceManagerError::NotAnInstance)
