@@ -328,12 +328,17 @@ pub async fn prepare_launch(
         for native in &components.natives {
             let file_path = &paths[&native.name];
             let mut zip = zip::ZipArchive::new(File::open(file_path)?)?;
-            for i in 0..zip.len() {
+            'fileloop: for i in 0..zip.len() {
                 // TODO: are ZIP bombs an issue here? if this code gets invoked, code from the
                 // instance and components is about to get executed anyways
                 let mut entry = zip.by_index(i)?;
                 let name = entry.name().to_string(); // need to copy, otherwise entry is immutably
                                                      // borrowed, preventing the read below
+                for exclusion in &native.exclusions {
+                    if name.starts_with(exclusion) {
+                        continue 'fileloop;
+                    }
+                }
                 if !check_path(&name) {
                     return Err(PrepareError::InvalidFilename { name })?;
                 }
