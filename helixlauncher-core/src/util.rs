@@ -17,10 +17,15 @@ const ILLEGAL_FILENAMES: &[&str] = &[
 // This is not an exhaustive check on being a _valid_ path, but should be one on being a
 // _dangerous_ path.
 pub fn check_path(path: &str) -> bool {
+    if path.is_empty() {
+        return false;
+    }
     for component in Path::new(path).components() {
         if let path::Component::Normal(component) = component {
             let name = component.to_str().unwrap();
-            if name.contains(|c| matches!(c, '\0'..='\x1f' | '$' | ':')) {
+            if name.is_empty()
+                || name.contains(|c| matches!(c, '\0'..='\x1f' | '$' | ':' | '\\' | '/'))
+            {
                 return false;
             }
             let prefix = name.split_once('.').map_or(name, |t| t.0);

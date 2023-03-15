@@ -332,6 +332,9 @@ pub async fn prepare_launch(
                 // TODO: are ZIP bombs an issue here? if this code gets invoked, code from the
                 // instance and components is about to get executed anyways
                 let mut entry = zip.by_index(i)?;
+                if !entry.is_file() {
+                    continue;
+                }
                 let name = entry.name().to_string(); // need to copy, otherwise entry is immutably
                                                      // borrowed, preventing the read below
                 for exclusion in &native.exclusions {
@@ -342,7 +345,10 @@ pub async fn prepare_launch(
                 if !check_path(&name) {
                     return Err(PrepareError::InvalidFilename { name })?;
                 }
-                io::copy(&mut entry, &mut File::create(natives_path.join(name))?)?;
+                let path = natives_path.join(name);
+                fs::create_dir_all(path.parent().unwrap())?; // unwrap is safe here, at minimum
+                                                             // there will be the natives folder
+                io::copy(&mut entry, &mut File::create(path)?)?;
             }
         }
     }
