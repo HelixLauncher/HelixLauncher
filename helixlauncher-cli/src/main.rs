@@ -3,7 +3,6 @@
 
 use std::fs;
 use std::io;
-use std::io::Read;
 
 use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
@@ -89,41 +88,32 @@ async fn create_instance() -> Result<()> {
     io::stdin()
         .read_line(&mut modloader_string)
         .expect("error: unable to read user input");
-    modloader_string = modloader_string.trim().to_lowercase().to_owned();
-    let modloader_str = modloader_string.as_str();
-    let modloader = match modloader_str {
+    modloader_string = modloader_string.trim().to_lowercase();
+
+    let modloader = match &*modloader_string {
         "quilt" | "quiltmc" => Modloader::Quilt,
         "fabric" | "fabricmc" => Modloader::Fabric,
         "forge" | "minecraftforge" => Modloader::Forge,
-        _ => Modloader::Vanilla,
+        "vanilla" => Modloader::Vanilla,
+        _ => {
+            println!("warn: using vanilla as modloader is invalid");
+            Modloader::Vanilla
+        }
     };
-    if (modloader_str != "quilt"
-        && modloader_str != "quiltmc"
-        && modloader_str != "fabric"
-        && modloader_str != "fabricmc"
-        && modloader_str != "forge"
-        && modloader_str != "minecraftforge"
-        && modloader_str != "none"
-        && modloader_str != "vanilla")
-    {
-        println!("warn: using vanilla as modloader is invalid")
-    }
 
-    let mut modloader_version = String::from("invalid_modloader_version_0x1");
-
-    if matches!(modloader, Modloader::Quilt)
-        || matches!(modloader, Modloader::Fabric)
-        || matches!(modloader, Modloader::Forge)
-    {
+    let modloader_version = if matches!(
+        modloader,
+        Modloader::Quilt | Modloader::Fabric | Modloader::Forge
+    ) {
         println!("Enter modloader version: ");
+        let mut modloader_version = String::new();
         io::stdin()
             .read_line(&mut modloader_version)
             .expect("error: unable to read user input");
-        modloader_version = modloader_version
-            .trim()
-            .to_owned()
-            .replace("invalid_modloader_version_0x1", "");
-    }
+        Some(modloader_version.trim().to_owned())
+    } else {
+        None
+    };
 
     let project_dir = ProjectDirs::from("dev", "HelixLauncher", "hxmc").unwrap();
     let instances_path = project_dir.data_dir().join("instances");
@@ -135,10 +125,7 @@ async fn create_instance() -> Result<()> {
         InstanceLaunch::default(),
         &instances_path,
         modloader,
-        match modloader_version.as_str() {
-            "invalid_modloader_version_0x1" => None,
-            _ => Some(modloader_version),
-        },
+        modloader_version,
     )?;
 
     Ok(())
@@ -150,7 +137,7 @@ async fn list_instances() -> Result<()> {
     let instances = Instance::list_instances(instances_path)?;
 
     for i in instances {
-        println!("Instance: {}", i.name);
+        println!("Instance: {}", i.config.name);
     }
 
     Ok(())

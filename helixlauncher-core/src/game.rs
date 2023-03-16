@@ -3,7 +3,7 @@ use std::{
     collections::{HashMap, HashSet},
     error::Error,
     fs::{self, File},
-    io::{self, Read},
+    io,
     path::{Path, PathBuf},
 };
 
