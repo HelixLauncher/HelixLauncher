@@ -44,11 +44,23 @@ fn assets_default() -> PathBuf {
 }
 
 impl Config {
-    pub fn new(name: &str) -> Result<Self, Error> {
+    /// `appdir` is the rDNS name of your application, also used as the macOS bundle id or the
+    /// `.desktop` file name on Linux. It will be used in the location of the data folder on macOS.
+    /// `name` is the name of your application and will be used in the location of the data folder
+    /// on Linux and Windows.
+    pub fn new(appid: &str, name: &str) -> Result<Self, Error> {
         // TODO allow the user to provide their own path
         let mut path = get_base_path();
-        path.push(name);
+        path.push(if cfg!(any(target_os = "macos", target_os = "ios")) {
+            appid
+        } else {
+            name
+        });
 
+        Self::new_with_data_dir(appid, name, path)
+    }
+
+    pub fn new_with_data_dir(_appid: &str, _name: &str, path: PathBuf) -> Result<Self, Error> {
         let config = if !path.exists() {
             if let Err(e) = fs::create_dir_all(&path) {
                 if e.kind() == io::ErrorKind::PermissionDenied {

@@ -20,4 +20,3 @@ log = { version = "0.4.17", features = ["serde"] }
 pretty_env_logger = "0.4.0"
 tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread", "fs", "process"] }
 helixlauncher-core = { version = "0.1.0", path = "../helixlauncher-core" }
-directories = "4.0"

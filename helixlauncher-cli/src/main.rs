@@ -1,13 +1,12 @@
 //! Helix Launcher CLI
 //! This is an example implementation of the Helix Launcher CLI.
 
-use std::fs;
 use std::io;
 
 use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use directories::ProjectDirs;
+use helixlauncher_core::config::Config;
 use helixlauncher_core::instance::Instance;
 use helixlauncher_core::instance::InstanceLaunch;
 use helixlauncher_core::instance::Modloader;
@@ -42,6 +41,7 @@ enum Command {
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = HelixLauncher::parse();
+    let config = Config::new("dev.helixlauncher.HelixLauncher", "HelixLauncher")?;
     pretty_env_logger::formatted_builder()
         .filter_level(cli.verbosity.log_level_filter())
         .init();
@@ -49,10 +49,10 @@ async fn main() -> Result<()> {
     match cli.subcommand {
         Command::Start => {}
         Command::Create => {
-            create_instance().await?;
+            create_instance(&config).await?;
         }
         Command::List => {
-            list_instances().await?;
+            list_instances(&config).await?;
         }
         Command::AccountList => {
             todo!();
@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn create_instance() -> Result<()> {
+async fn create_instance(config: &Config) -> Result<()> {
     // creation wizard
     // probably a better way to do this - probably even more so for modloader bit
 
@@ -115,26 +115,19 @@ async fn create_instance() -> Result<()> {
         None
     };
 
-    let project_dir = ProjectDirs::from("dev", "HelixLauncher", "hxmc").unwrap();
-    let instances_path = project_dir.data_dir().join("instances");
-
-    fs::create_dir_all(&instances_path)?;
     Instance::new(
         name,
         version,
         InstanceLaunch::default(),
-        &instances_path,
+        &config.get_instances_path(),
         modloader,
         modloader_version,
     )?;
 
     Ok(())
 }
-async fn list_instances() -> Result<()> {
-    let project_dir = ProjectDirs::from("dev", "HelixLauncher", "hxmc").unwrap();
-    let instances_path = project_dir.data_dir().join("instances");
-
-    let instances = Instance::list_instances(instances_path)?;
+async fn list_instances(config: &Config) -> Result<()> {
+    let instances = Instance::list_instances(config.get_instances_path())?;
 
     for i in instances {
         println!("Instance: {}", i.config.name);
