@@ -7,6 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Result;
 use digest::Digest;
 use helixlauncher_meta::{
     component::{self, Component, ConditionalClasspathEntry, Hash, Platform},
@@ -91,7 +92,7 @@ pub struct PreparedLaunch {}
 pub async fn merge_components(
     config: &Config,
     components: &Vec<instance::Component>,
-) -> Result<MergedComponents, Box<dyn Error>> {
+) -> Result<MergedComponents> {
     let mut classpath = IndexMap::new();
     let mut jarmods = IndexMap::new();
     let mut traits = vec![];
@@ -190,13 +191,9 @@ fn check_file(path: &Path, size: u32, hash: &component::Hash) -> Result<bool, io
     Ok(file.len() == (size as usize) && check_hash(&file, hash).0)
 }
 
-async fn download_file(
-    path: &Path,
-    url: &str,
-    size: u32,
-    hash: &component::Hash,
-) -> Result<(), Box<dyn Error>> {
+async fn download_file(path: &Path, url: &str, size: u32, hash: &component::Hash) -> Result<()> {
     if !check_file(path, size, hash)? {
+        fs::create_dir_all(path.parent().unwrap())?;
         let data = reqwest::get(url).await?.bytes().await?;
         let (hash_matches, actual_hash) = check_hash(&data, hash);
         if data.len() != size as usize || !hash_matches {
@@ -217,7 +214,7 @@ pub async fn prepare_launch(
     config: &Config,
     instance: &instance::Instance,
     components: &MergedComponents,
-) -> Result<PreparedLaunch, Box<dyn Error>> {
+) -> Result<PreparedLaunch> {
     // TODO: parallelize
     let mut needed_artifacts = HashMap::with_capacity(components.artifacts.len());
     for library in &components.classpath {
@@ -414,11 +411,7 @@ fn platform_matches(platform: Platform) -> bool {
     true
 }
 
-async fn fetch_component(
-    config: &Config,
-    id: &str,
-    version: &str,
-) -> Result<Component, Box<dyn Error>> {
+async fn fetch_component(config: &Config, id: &str, version: &str) -> Result<Component> {
     // TODO: better caching
     let component_data_result = async {
         reqwest::get(format!("{META}{id}/{version}.json"))

@@ -7,6 +7,8 @@ use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use helixlauncher_core::config::Config;
+use helixlauncher_core::game::merge_components;
+use helixlauncher_core::game::prepare_launch;
 use helixlauncher_core::instance::Instance;
 use helixlauncher_core::instance::InstanceLaunch;
 use helixlauncher_core::instance::Modloader;
@@ -23,7 +25,7 @@ struct HelixLauncher {
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Launches a new instance
-    Start,
+    Launch { name: String },
 
     /// Creates a new instance
     Create,
@@ -47,7 +49,9 @@ async fn main() -> Result<()> {
         .init();
 
     match cli.subcommand {
-        Command::Start => {}
+        Command::Launch { name } => {
+            launch_instance(&config, name).await?;
+        }
         Command::Create => {
             create_instance(&config).await?;
         }
@@ -62,6 +66,13 @@ async fn main() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+async fn launch_instance(config: &Config, name: String) -> Result<()> {
+    let instance = Instance::from_path(config.get_instances_path().join(name))?;
+    let components = merge_components(config, &instance.config.components).await?;
+    let prepared = prepare_launch(config, &instance, &components).await?;
     Ok(())
 }
 
