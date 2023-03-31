@@ -1,4 +1,4 @@
 
 # This alias is here for easy access to the CLI
 [alias]
-hxmc = "run -p hxmc --"
+hxmc = "run --bin hxmc --"
