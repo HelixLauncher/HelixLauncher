@@ -3,63 +3,45 @@
 
 // TODO: Make C API
 
-use std::path::PathBuf;
-// use std::slice::Join;
-use std::vec::Vec;
+use std::{io, process::Stdio};
+use tokio::process::{Child, Command};
+
+use crate::game::PreparedLaunch;
+use thiserror::Error;
 
 #[cfg(target_os = "windows")]
-static CLASSPATH_SEPARATOR: &str = ";";
+const CLASSPATH_SEPARATOR: &str = ";";
 #[cfg(not(target_os = "windows"))]
-static CLASSPATH_SEPARATOR: &str = ":";
+const CLASSPATH_SEPARATOR: &str = ":";
 
-#[derive(Debug, Clone)]
-pub struct ClassPath {
-    pub path: PathBuf,
+#[derive(Debug, Error)]
+pub enum LaunchError {
+    #[error("{0}")]
+    IoError(#[from] io::Error),
 }
 
-impl From<String> for ClassPath {
-    fn from(path: String) -> Self {
-        Self {
-            path: PathBuf::from(path),
-        }
+// TODO: add better API for log output
+pub async fn launch(
+    prepared_launch: &PreparedLaunch,
+    inherit_out: bool,
+) -> Result<Child, LaunchError> {
+    if !inherit_out {
+        todo!();
     }
+    let classpath = generate_classpath(&prepared_launch.classpath);
+    // TODO: hook up javalaunch
+    Ok(Command::new(&prepared_launch.java_path)
+        .args(&prepared_launch.jvm_args)
+        .arg("-classpath")
+        .arg(classpath)
+        .arg(&prepared_launch.main_class)
+        .args(&prepared_launch.args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .spawn()?)
 }
 
-#[derive(Debug, Clone)]
-pub struct Launcher {
-    /// Path to the Java executable
-    // TODO: Change this later
-    pub java: PathBuf,
-    pub assets_dir: PathBuf,
-    pub classpath: Vec<ClassPath>,
-}
-
-impl Launcher {
-    pub fn new(java: PathBuf, assets_dir: PathBuf) -> Self {
-        todo!()
-    }
-
-    pub fn launch(
-        &self,
-        version: &str,
-        username: &str,
-        session: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        todo!()
-        // TODO
-        // 1: Fetch game files from game mod
-        // 2: Get user data from auth mod
-        // 3: Fetch meta for start command
-        // 4: Run start command with classpath
-    }
-
-    pub fn generate_classpath(&self) -> String {
-        let classpath = self
-            .classpath
-            .iter()
-            .map(|cp| cp.path.to_str().unwrap())
-            .collect::<Vec<&str>>()
-            .join(CLASSPATH_SEPARATOR);
-        classpath
-    }
+fn generate_classpath(classpath: &[String]) -> String {
+    classpath.join(CLASSPATH_SEPARATOR)
 }

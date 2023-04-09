@@ -1,3 +1,5 @@
+#![deny(rust_2018_idioms)]
+
 pub mod auth;
 pub mod config;
 pub mod game;

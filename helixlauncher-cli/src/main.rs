@@ -12,6 +12,7 @@ use helixlauncher_core::game::prepare_launch;
 use helixlauncher_core::instance::Instance;
 use helixlauncher_core::instance::InstanceLaunch;
 use helixlauncher_core::instance::Modloader;
+use helixlauncher_core::launcher::launch;
 
 #[derive(Parser, Debug)]
 struct HelixLauncher {
@@ -73,6 +74,7 @@ async fn launch_instance(config: &Config, name: String) -> Result<()> {
     let instance = Instance::from_path(config.get_instances_path().join(name))?;
     let components = merge_components(config, &instance.config.components).await?;
     let prepared = prepare_launch(config, &instance, &components).await?;
+    launch(&prepared, true).await?.wait().await?;
     Ok(())
 }
 

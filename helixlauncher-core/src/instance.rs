@@ -159,4 +159,17 @@ impl Instance {
             .map(|i| Self::from_path(i?.path()))
             .collect()
     }
+
+    pub fn get_game_dir(&self) -> PathBuf {
+        self.path.join(".minecraft")
+    }
+
+    pub fn get_component_version(&self, id: &str) -> Option<&str> {
+        self.config
+            .components
+            .iter()
+            .filter(|component| component.id == id)
+            .map(|component| &*component.version)
+            .next()
+    }
 }

@@ -1,7 +1,6 @@
 use std::{
     borrow::{Borrow, Cow},
     collections::{HashMap, HashSet},
-    error::Error,
     fs::{self, File},
     io,
     path::{Path, PathBuf},
@@ -10,7 +9,7 @@ use std::{
 use anyhow::Result;
 use digest::Digest;
 use helixlauncher_meta::{
-    component::{self, Component, ConditionalClasspathEntry, Hash, Platform},
+    component::{self, Component, ConditionalClasspathEntry, Hash, MinecraftArgument, Platform},
     index::Index,
     util::{GradleSpecifier, CURRENT_ARCH, CURRENT_OS},
 };
@@ -18,7 +17,7 @@ use helixlauncher_meta::{
 use hex::ToHex;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
-use regex::Regex;
+use regex::{Captures, Regex};
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -39,6 +38,8 @@ pub struct MergedComponents {
     pub assets: Option<component::Assets>,
     pub game_jar: GradleSpecifier,
     pub jarmods: Vec<GradleSpecifier>,
+    pub main_class: String,
+    pub arguments: Vec<MinecraftArgument>,
 }
 
 #[derive(Debug)]
@@ -85,7 +86,13 @@ pub enum PrepareError {
 }
 
 #[derive(Debug)]
-pub struct PreparedLaunch {}
+pub struct PreparedLaunch {
+    pub java_path: String,
+    pub jvm_args: Vec<String>,
+    pub classpath: Vec<String>,
+    pub main_class: String,
+    pub args: Vec<String>,
+}
 
 // TODO: proper error (and progress?) handling
 // TODO: this doesn't handle stuff like Rosetta or running x86 Java on x86_64 at all
@@ -101,6 +108,7 @@ pub async fn merge_components(
     let mut game_jar = None;
     let mut assets = None;
     let mut main_class = None;
+    let mut arguments = vec![];
 
     for component in components {
         let component = fetch_component(config, &component.id, &component.version).await?;
@@ -155,6 +163,9 @@ pub async fn merge_components(
         game_jar = game_jar.or(component.game_jar);
         assets = assets.or(component.assets);
         main_class = main_class.or(component.main_class);
+        for argument in component.game_arguments {
+            arguments.push(argument);
+        }
     }
     Ok(MergedComponents {
         classpath: classpath.into_values().collect(),
@@ -164,6 +175,8 @@ pub async fn merge_components(
         game_jar: game_jar.unwrap(),
         assets,
         jarmods: jarmods.into_values().collect(),
+        main_class: main_class.unwrap(),
+        arguments,
     })
 }
 
@@ -215,6 +228,49 @@ pub async fn prepare_launch(
     instance: &instance::Instance,
     components: &MergedComponents,
 ) -> Result<PreparedLaunch> {
+    // TODO: global default config
+    let java_path = String::from("java"); // FIXME
+    let game_dir = instance.get_game_dir();
+    let natives_path = instance.path.join("natives");
+
+    // Set locale to English to make Java's String.toUpperCase/toLowerCase return predictable results if mods forgot to pass a locale
+    let mut jvm_args = vec![String::from("-Duser.language=en"), format!("-Djava.library.path={}", natives_path.to_str().unwrap())];
+    if let Some(allocation) = &instance.config.launch.allocation {
+        jvm_args.append(&mut vec![
+            format!("-Xms{}M", allocation.min),
+            format!("-Xmx{}M", allocation.max),
+        ]);
+    }
+    if let Some(instance_jvm_args) = &instance.config.launch.jvm_args {
+        jvm_args.append(&mut instance_jvm_args.clone());
+    }
+    let mut args = vec![];
+    for argument in &components.arguments {
+        args.push(match argument {
+            MinecraftArgument::Always(arg) => arg,
+            MinecraftArgument::Conditional { value, feature } => {
+                if !match feature {
+                    component::ConditionFeature::Demo => true, // TODO: implement authentication
+                    _ => false,                                // TODO
+                } {
+                    continue;
+                }
+                value
+            }
+        })
+    }
+    let mut props = HashMap::new();
+    props.insert("user.name", "Player");
+    props.insert("user.uuid", "00000000-0000-0000-0000-000000000000");
+    props.insert("user.token", "");
+    props.insert("user.type", "mojang");
+    props.insert("instance.game_dir", game_dir.to_str().unwrap());
+
+
+    if let Some(minecraft_version) = instance.get_component_version("net.minecraft") {
+        props.insert("instance.minecraft_version", minecraft_version);
+    }
+
     // TODO: parallelize
     let mut needed_artifacts = HashMap::with_capacity(components.artifacts.len());
     for library in &components.classpath {
@@ -254,8 +310,7 @@ pub async fn prepare_launch(
     }
 
     let game_jar = if !components.jarmods.is_empty() {
-        let mut minecraft_jar = instance.path.join(".minecraft");
-        minecraft_jar.push("bin");
+        let mut minecraft_jar = game_dir.join("bin");
         minecraft_jar.push("minecraft.jar");
         let mut zip_writer = zip::ZipWriter::new(File::create(&minecraft_jar)?);
         let mut written_files = HashSet::new();
@@ -274,8 +329,23 @@ pub async fn prepare_launch(
         Cow::Borrowed(&paths[&components.game_jar])
     };
 
+    let mut classpath = vec![game_jar
+        .into_owned()
+        .into_os_string()
+        .into_string()
+        .unwrap()];
+
+    for entry in &components.classpath {
+        classpath.push(paths[entry].to_str().unwrap().to_string());
+    }
+
+    let assets_dir; // outside the block, so that it outlives the block for props
+    let unpack_path;
+
     if let Some(assets) = &components.assets {
-        let assets_dir = config.get_assets_path();
+        assets_dir = config.get_assets_path();
+        props.insert("instance.assets_dir", assets_dir.to_str().unwrap());
+        props.insert("instance.assets_index_name", &assets.id);
         let mut index_path = assets_dir.join("indexes");
         index_path.push(format!("{}.json", assets.id));
         download_file(
@@ -288,16 +358,21 @@ pub async fn prepare_launch(
         )
         .await?;
         let index: AssetIndex = serde_json::from_slice(&fs::read(index_path)?)?;
-        let unpack_path = if index.map_to_resources {
-            Some(instance.path.join("resources"))
+        unpack_path = if index.map_to_resources {
+            Some(game_dir.join("resources"))
         } else if index.r#virtual {
-            let mut virtual_dir = instance.path.join("assets");
+            let mut virtual_dir = game_dir.join("assets");
             virtual_dir.push("virtual");
             virtual_dir.push(&assets.id);
             Some(virtual_dir)
         } else {
             None
         };
+
+        if let Some(unpack_path) = &unpack_path {
+            props.insert("instance.virtual_assets_dir", unpack_path.to_str().unwrap());
+        }
+
         for (name, Asset { hash, size }) in index.objects {
             let hash_part = &hash[..2];
             let mut asset_path = assets_dir.join("objects");
@@ -316,45 +391,68 @@ pub async fn prepare_launch(
                         name: name.to_string(),
                     })?;
                 }
-                copy_file(&asset_path, &unpack_path.join(name))?;
-            }
-        }
-
-        let natives_path = instance.path.join("natives");
-
-        for native in &components.natives {
-            let file_path = &paths[&native.name];
-            let mut zip = zip::ZipArchive::new(File::open(file_path)?)?;
-            'fileloop: for i in 0..zip.len() {
-                // TODO: are ZIP bombs an issue here? if this code gets invoked, code from the
-                // instance and components is about to get executed anyways
-                let mut entry = zip.by_index(i)?;
-                if !entry.is_file() {
-                    continue;
-                }
-                let name = entry.name().to_string(); // need to copy, otherwise entry is immutably
-                                                     // borrowed, preventing the read below
-                for exclusion in &native.exclusions {
-                    if name.starts_with(exclusion) {
-                        continue 'fileloop;
-                    }
-                }
-                if !check_path(&name) {
-                    return Err(PrepareError::InvalidFilename { name })?;
-                }
-                let path = natives_path.join(name);
-                fs::create_dir_all(path.parent().unwrap())?; // unwrap is safe here, at minimum
-                                                             // there will be the natives folder
-                io::copy(&mut entry, &mut File::create(path)?)?;
+                let unpack_file = unpack_path.join(name);
+                fs::create_dir_all(unpack_file.parent().unwrap())?;
+                copy_file(&asset_path, &unpack_file)?;
             }
         }
     }
 
-    Ok(PreparedLaunch {})
+
+    for native in &components.natives {
+        let file_path = &paths[&native.name];
+        let mut zip = zip::ZipArchive::new(File::open(file_path)?)?;
+        for i in 0..zip.len() {
+            // TODO: are ZIP bombs an issue here? if this code gets invoked, code from the
+            // instance and components is about to get executed anyways
+            let mut entry = zip.by_index(i)?;
+            if !entry.is_file() {
+                continue;
+            }
+            let name = entry.name().to_string(); // need to copy, otherwise entry is immutably
+                                                 // borrowed, preventing the read below
+            if native
+                .exclusions
+                .iter()
+                .any(|exclusion| name.starts_with(exclusion))
+            {
+                continue;
+            }
+            if !check_path(&name) {
+                return Err(PrepareError::InvalidFilename { name })?;
+            }
+            let path = natives_path.join(name);
+            fs::create_dir_all(path.parent().unwrap())?; // unwrap is safe here, at minimum
+                                                         // there will be the natives folder
+            io::copy(&mut entry, &mut File::create(path)?)?;
+        }
+    }
+
+    lazy_static! {
+        static ref VAR_PATTERN: Regex = Regex::new(r"\$\{([a-zA-Z0-9_.]+)\}").unwrap();
+    }
+
+    Ok(PreparedLaunch {
+        java_path,
+        jvm_args,
+        classpath,
+        main_class: components.main_class.to_string(),
+        args: args
+            .into_iter()
+            .map(|arg| {
+                VAR_PATTERN
+                    .replace_all(arg, |captures: &Captures<'_>| {
+                        println!("{:?}", captures);
+                        props[captures.get(1).unwrap().as_str()]
+                    })
+                    .into_owned()
+            })
+            .collect(),
+    })
 }
 
 impl Artifact {
-    fn clean_name(name: &str) -> Cow<str> {
+    fn clean_name(name: &str) -> Cow<'_, str> {
         lazy_static! {
             static ref CLEAN_NAME_REGEX: Regex = Regex::new(r"[^a-zA-Z0-9.\-_]|^\.").unwrap();
         }
