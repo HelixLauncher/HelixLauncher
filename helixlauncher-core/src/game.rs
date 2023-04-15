@@ -1,6 +1,6 @@
 use std::{
     borrow::{Borrow, Cow},
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap, HashSet},
     fs::{self, File},
     io,
     path::{Path, PathBuf},
@@ -34,7 +34,7 @@ pub struct MergedComponents {
     pub classpath: Vec<GradleSpecifier>,
     pub natives: Vec<Native>,
     pub artifacts: HashMap<GradleSpecifier, Artifact>,
-    pub traits: Vec<component::Trait>,
+    pub traits: BTreeSet<component::Trait>,
     pub assets: Option<component::Assets>,
     pub game_jar: GradleSpecifier,
     pub jarmods: Vec<GradleSpecifier>,
@@ -83,6 +83,8 @@ pub enum PrepareError {
     },
     #[error("Invalid filename found: {name}")]
     InvalidFilename { name: String },
+    #[error("Feature not supported by the instance: {name}")]
+    UnsupportedFeature { name: String },
 }
 
 #[derive(Debug)]
@@ -94,6 +96,17 @@ pub struct PreparedLaunch {
     pub args: Vec<String>,
 }
 
+#[derive(Debug, Default)]
+pub struct LaunchOptions {
+    pub world: Option<String>,
+}
+
+impl LaunchOptions {
+    pub fn world(self, world: Option<String>) -> Self {
+        Self { world, ..self }
+    }
+}
+
 // TODO: proper error (and progress?) handling
 // TODO: this doesn't handle stuff like Rosetta or running x86 Java on x86_64 at all
 pub async fn merge_components(
@@ -102,7 +115,7 @@ pub async fn merge_components(
 ) -> Result<MergedComponents> {
     let mut classpath = IndexMap::new();
     let mut jarmods = IndexMap::new();
-    let mut traits = vec![];
+    let mut traits = BTreeSet::new();
     let mut artifacts = HashMap::new();
     let mut natives = vec![];
     let mut game_jar = None;
@@ -113,9 +126,7 @@ pub async fn merge_components(
     for component in components {
         let component = fetch_component(config, &component.id, &component.version).await?;
         for trait_ in component.traits {
-            if !traits.contains(&trait_) {
-                traits.push(trait_);
-            }
+            traits.insert(trait_);
         }
         for native in component.natives {
             if platform_matches(native.platform) {
@@ -227,14 +238,28 @@ pub async fn prepare_launch(
     config: &Config,
     instance: &instance::Instance,
     components: &MergedComponents,
+    launch_options: LaunchOptions,
 ) -> Result<PreparedLaunch> {
     // TODO: global default config
     let java_path = String::from("java"); // FIXME
     let game_dir = instance.get_game_dir();
     let natives_path = instance.path.join("natives");
 
+    if launch_options.world.is_some()
+        && !components
+            .traits
+            .contains(&component::Trait::SupportsQuickPlayWorld)
+    {
+        return Err(PrepareError::UnsupportedFeature {
+            name: String::from("Launching into world"),
+        })?;
+    }
+
     // Set locale to English to make Java's String.toUpperCase/toLowerCase return predictable results if mods forgot to pass a locale
-    let mut jvm_args = vec![String::from("-Duser.language=en"), format!("-Djava.library.path={}", natives_path.to_str().unwrap())];
+    let mut jvm_args = vec![
+        String::from("-Duser.language=en"),
+        format!("-Djava.library.path={}", natives_path.to_str().unwrap()),
+    ];
     if let Some(allocation) = &instance.config.launch.allocation {
         jvm_args.append(&mut vec![
             format!("-Xms{}M", allocation.min),
@@ -251,7 +276,8 @@ pub async fn prepare_launch(
             MinecraftArgument::Conditional { value, feature } => {
                 if !match feature {
                     component::ConditionFeature::Demo => true, // TODO: implement authentication
-                    _ => false,                                // TODO
+                    component::ConditionFeature::QuickPlayWorld => launch_options.world.is_some(),
+                    _ => false, // TODO
                 } {
                     continue;
                 }
@@ -266,9 +292,12 @@ pub async fn prepare_launch(
     props.insert("user.type", "mojang");
     props.insert("instance.game_dir", game_dir.to_str().unwrap());
 
-
     if let Some(minecraft_version) = instance.get_component_version("net.minecraft") {
         props.insert("instance.minecraft_version", minecraft_version);
+    }
+
+    if let Some(world) = &launch_options.world {
+        props.insert("launch.world", &world);
     }
 
     // TODO: parallelize
@@ -397,7 +426,6 @@ pub async fn prepare_launch(
             }
         }
     }
-
 
     for native in &components.natives {
         let file_path = &paths[&native.name];
