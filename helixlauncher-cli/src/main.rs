@@ -2,6 +2,7 @@
 //! This is an example implementation of the Helix Launcher CLI.
 
 use std::io;
+use std::path::Path;
 
 use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand};
@@ -10,6 +11,8 @@ use helixlauncher_core::config::Config;
 use helixlauncher_core::game::{merge_components, prepare_launch, LaunchOptions};
 use helixlauncher_core::instance::{Instance, InstanceLaunch, Modloader};
 use helixlauncher_core::launcher::launch;
+use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
+use helixlauncher_core::auth::account::{add_account, get_accounts, Account};
 
 #[derive(Parser, Debug)]
 struct HelixLauncher {
@@ -67,10 +70,10 @@ async fn main() -> Result<()> {
             list_instances(&config).await?;
         }
         Command::AccountList => {
-            todo!();
+            get_accounts_cmd(&config).await;
         }
         Command::AccountNew => {
-            todo!();
+            add_account_cmd(&config).await;        
         }
     }
 
@@ -169,4 +172,50 @@ async fn list_instances(config: &Config) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn add_account_callback(code: String, uri: String, message: String) {
+    println!("code: {}", code);
+    println!("uri: {}", uri);
+    println!("message: {}", message);
+}
+
+async fn add_account_cmd(config: &Config) {
+    let minecraft_authenticator: MinecraftAuthenticator = MinecraftAuthenticator::new("1d644380-5a23-4a84-89c3-5d29615fbac2");
+    let out = minecraft_authenticator.initial_auth(add_account_callback).await;
+    if out.is_ok() {
+        let account = out.unwrap();
+        let username = account.username.clone();
+        let uuid = account.uuid.clone();
+        let e_out = get_accounts(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON).as_path());
+        let mut exists = false;
+        if e_out.is_ok() {
+            let ex_accounts = e_out.unwrap();
+            for acc in ex_accounts {
+                if uuid == acc.uuid {
+                    exists = true;
+                }
+            }
+        }
+        let mut no_print = false;
+        if !exists {
+            let add_acc_res = add_account(account, config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON).as_path());
+            if !add_acc_res.is_ok() {
+                no_print = true;
+            }
+        }
+        if !no_print {
+            println!("Welcome! You are logged in as: {}", username);
+        }
+    }
+}
+
+async fn get_accounts_cmd(config: &Config) {
+   let out = get_accounts(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON).as_path());
+   if out.is_ok() {
+        let accounts = out.unwrap();
+        for account in accounts {
+            println!("- {}", account.username); 
+        }
+   }
 }

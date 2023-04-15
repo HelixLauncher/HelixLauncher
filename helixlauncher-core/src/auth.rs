@@ -1,4 +1,4 @@
-mod account;
+pub mod account;
 mod request_structs;
 
 use reqwest::{Client, StatusCode};
@@ -9,7 +9,7 @@ use thiserror::Error;
 use account::Account;
 use request_structs::*;
 
-const DEFAULT_ACCOUNT_JSON: &str = "accounts.helix.json";
+pub const DEFAULT_ACCOUNT_JSON: &str = "accounts.helix.json";
 
 #[derive(Error, Debug)]
 pub enum AuthenticationError {
