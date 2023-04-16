@@ -8,26 +8,13 @@ Kirigami.ApplicationWindow {
 
     title: "Helix Launcher"
 
-    pageStack.globalToolBar.style: pageStack.wideMode ? Kirigami.ApplicationHeaderStyle.None : Kirigami.ApplicationHeaderStyle.Auto
-
-    pageStack.defaultColumnWidth: Kirigami.Units.gridUnit * 16
     pageStack.items: [
-        Kirigami.Page {
-            Rectangle {
-                anchors.fill: parent
-
-                Label { text: "Sidebar"; anchors.centerIn: parent }
-
-                color: "red"
-            }
-        },
-
         Kirigami.ScrollablePage {
             Kirigami.CardsListView {
                 model: ListModel {
-                    ListElement { name: "Adrenaline AU"; version: "Quilt 1.19.2"; playTime: "182 hours and 32 minutes" }
-                    ListElement { name: "Fabulously Optimized"; version: "Fabric 1.19.2"; playTime: "43 hours and 3 minutes" }
-                    ListElement { name: "Simply Optimized"; version: "Fabric 1.19.2"; playTime: "3 hours and 17 minutes" }
+                    ListElement { name: "Adrenaline AU"; loader: "Quilt"; version: "1.19.2"; }
+                    ListElement { name: "Fabulously Optimized"; loader: "Fabric"; version: "1.19.2"; }
+                    ListElement { name: "Simply Optimized"; loader: "Fabric"; version: "1.19.2"; }
                 }
 
                 delegate: Kirigami.AbstractCard {
@@ -47,51 +34,7 @@ Kirigami.ApplicationWindow {
 
                             level: 3
                             color: Kirigami.Theme.disabledTextColor
-                            text: version
-                        }
-
-                        Kirigami.Heading {
-                            Layout.fillHeight: true
-
-                            level: 3
-                            color: Kirigami.Theme.disabledTextColor
-                            text: playTime
-                        }
-                    }
-                }
-            }
-
-            footer: Pane {
-                Kirigami.Theme.inherit: false
-                Kirigami.Theme.colorSet: Kirigami.Theme.Window
-
-                height: 100
-
-                RowLayout {
-                    anchors.fill: parent
-
-                    Item {
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        Layout.leftMargin: Kirigami.Units.gridUnit
-
-                        Button {
-                            anchors.verticalCenter: parent.verticalCenter
-
-                            text: "Settings"
-                            icon.source: "../icons/settings.svg"
-                            display: AbstractButton.IconOnly
-                        }
-                    }
-
-                    Rectangle {
-                        width: 300
-                        Layout.fillHeight: true
-
-                        color: "blue"
-
-                        Label {
-                            text: "Instance"
+                            text: loader + " " + version
                         }
                     }
                 }
