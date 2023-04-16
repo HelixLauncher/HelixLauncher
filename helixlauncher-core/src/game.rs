@@ -22,6 +22,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
+    auth::account::Account,
     config::Config,
     instance,
     util::{check_path, copy_file},
@@ -218,6 +219,7 @@ fn check_file(path: &Path, size: u32, hash: &component::Hash) -> Result<bool, io
 async fn download_file(path: &Path, url: &str, size: u32, hash: &component::Hash) -> Result<()> {
     if !check_file(path, size, hash)? {
         fs::create_dir_all(path.parent().unwrap())?;
+        println!("downloading: {}", url);
         let data = reqwest::get(url).await?.bytes().await?;
         let (hash_matches, actual_hash) = check_hash(&data, hash);
         if data.len() != size as usize || !hash_matches {
@@ -239,6 +241,7 @@ pub async fn prepare_launch(
     instance: &instance::Instance,
     components: &MergedComponents,
     launch_options: LaunchOptions,
+    account: Option<Account>,
 ) -> Result<PreparedLaunch> {
     // TODO: global default config
     let java_path = String::from("java"); // FIXME
@@ -275,7 +278,7 @@ pub async fn prepare_launch(
             MinecraftArgument::Always(arg) => arg,
             MinecraftArgument::Conditional { value, feature } => {
                 if !match feature {
-                    component::ConditionFeature::Demo => true, // TODO: implement authentication
+                    component::ConditionFeature::Demo => !account.is_some(), // TODO: implement authentication
                     component::ConditionFeature::QuickPlayWorld => launch_options.world.is_some(),
                     _ => false, // TODO
                 } {
@@ -285,10 +288,21 @@ pub async fn prepare_launch(
             }
         })
     }
+    let mut username = String::from("Player");
+    let mut uuid = String::from("00000000-0000-0000-0000-000000000000");
+    let mut token = String::from("");
+    if let Some(ex_a) = account {
+        let xusername = ex_a.username.clone();
+        let xuuid = ex_a.uuid.clone();
+        let xtoken = ex_a.token.clone();
+        username = xusername;
+        uuid = xuuid;
+        token = xtoken;
+    }
     let mut props = HashMap::new();
-    props.insert("user.name", "Player");
-    props.insert("user.uuid", "00000000-0000-0000-0000-000000000000");
-    props.insert("user.token", "");
+    props.insert("user.name", username.as_str());
+    props.insert("user.uuid", uuid.as_str());
+    props.insert("user.token", token.as_str());
     props.insert("user.type", "mojang");
     props.insert("instance.game_dir", game_dir.to_str().unwrap());
 

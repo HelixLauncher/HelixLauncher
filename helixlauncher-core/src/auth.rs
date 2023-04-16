@@ -181,6 +181,7 @@ impl MinecraftAuthenticator {
             username: profile_response.name,
             refresh_token,
             token: minecraft_response.access_token,
+            selected: false,
         })
     }
 }

@@ -45,6 +45,9 @@ enum Command {
 
     /// Add new account
     AccountNew,
+
+    /// Select an account
+    AccountSelect,
 }
 
 #[tokio::main]
@@ -75,6 +78,9 @@ async fn main() -> Result<()> {
         Command::AccountNew => {
             add_account_cmd(&config).await;
         }
+        Command::AccountSelect => {
+            todo!();
+        }
     }
 
     Ok(())
@@ -88,11 +94,26 @@ async fn launch_instance(
 ) -> Result<()> {
     let instance = Instance::from_path(config.get_instances_path().join(name))?;
     let components = merge_components(config, &instance.config.components).await?;
+
+    let accounts = get_accounts(
+        config
+            .get_base_path()
+            .as_path()
+            .join(DEFAULT_ACCOUNT_JSON)
+            .as_path(),
+    )?;
+    let mut account: Option<Account> = None;
+    for a in accounts {
+        if a.selected {
+            account = Some(a)
+        }
+    }
     let prepared = prepare_launch(
         config,
         &instance,
         &components,
         LaunchOptions::default().world(world),
+        account,
     )
     .await?;
     if !dry_run {
@@ -134,7 +155,7 @@ async fn create_instance(config: &Config) -> Result<()> {
         "forge" | "minecraftforge" => Modloader::Forge,
         "vanilla" => Modloader::Vanilla,
         _ => {
-            println!("warn: using vanilla as modloader is invalid");
+            println!("warn: using vanilla for modloader as input is invalid");
             Modloader::Vanilla
         }
     };

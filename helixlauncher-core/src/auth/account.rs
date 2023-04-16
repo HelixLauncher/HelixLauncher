@@ -21,6 +21,7 @@ pub struct Account {
     pub username: String,
     pub refresh_token: String,
     pub token: String,
+    pub selected: bool,
 }
 
 pub fn get_accounts(account_json: &Path) -> Result<Vec<Account>, AccountManagerError> {
@@ -33,9 +34,11 @@ pub fn get_accounts(account_json: &Path) -> Result<Vec<Account>, AccountManagerE
     ))?)
 }
 
-pub fn add_account(account: Account, account_json: &Path) -> Result<(), AccountManagerError> {
+pub fn add_account(mut account: Account, account_json: &Path) -> Result<(), AccountManagerError> {
     let mut accounts: Vec<Account> = get_accounts(account_json)?;
-
+    if accounts.len() == 0 {
+        account.selected = true
+    }
     accounts.push(account);
 
     let writer = File::create(account_json)?;
