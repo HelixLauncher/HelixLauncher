@@ -2,6 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import org.kde.kirigami 2.13 as Kirigami
+import dev.helixlauncher.qml 1.0
 
 Kirigami.ApplicationWindow {
     id: root
@@ -10,31 +11,107 @@ Kirigami.ApplicationWindow {
 
     pageStack.items: [
         Kirigami.ScrollablePage {
+            title: "Instances"
+
+            actions.main: Kirigami.Action {
+                icon.name: "list-add"
+                text: "Add instance"
+            }
+
             Kirigami.CardsListView {
-                model: ListModel {
-                    ListElement { name: "Adrenaline AU"; loader: "Quilt"; version: "1.19.2"; }
-                    ListElement { name: "Fabulously Optimized"; loader: "Fabric"; version: "1.19.2"; }
-                    ListElement { name: "Simply Optimized"; loader: "Fabric"; version: "1.19.2"; }
+                model: InstancesModel {
+                    id: instancesModel
                 }
 
                 delegate: Kirigami.AbstractCard {
-                    contentItem: RowLayout {
-                        spacing: Kirigami.Units.gridUnit
+                    contentItem: Item {
+                        implicitHeight: Kirigami.Units.gridUnit * 2
 
-                        Kirigami.Heading {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
+                        ColumnLayout {
+                            anchors {
+                                verticalCenter: parent.verticalCenter
+                                right: parent.right
+                                left: parent.left
+                            }
+                            spacing: 0
 
-                            level: 1
-                            text: name
+                            RowLayout {
+                                Kirigami.Heading {
+                                    Layout.fillWidth: true
+
+                                    level: 1
+                                    type: Kirigami.Heading.Type.Primary
+                                    text: name
+                                    elide: Text.ElideRight
+                                    maximumLineCount: 1
+                                }
+
+                                RowLayout {
+                                    Layout.alignment: Qt.AlignRight
+
+                                    Label {
+                                        text: loader
+                                        font: Kirigami.Theme.smallFont
+                                    }
+
+                                    Label {
+                                        text: version
+                                        font: Kirigami.Theme.smallFont
+                                    }
+                                }
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                Layout.topMargin: Kirigami.Units.smallSpacing
+
+                                Label {
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignTop
+                                    text: "Playtime unknown"
+                                    opacity: 0.6
+                                    font: Kirigami.Theme.smallFont
+                                    elide: Text.ElideRight
+                                }
+
+                                Button {
+                                    Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                                    text: "Launch"
+                                    onClicked: instancesModel.launch(index)
+                                }
+                            }
                         }
+                    }
 
-                        Kirigami.Heading {
-                            Layout.fillHeight: true
+                    showClickFeedback: true
 
-                            level: 3
-                            color: Kirigami.Theme.disabledTextColor
-                            text: loader + " " + version
+                    onClicked: {
+                        applicationWindow().pageStack.push(instancePage)
+                    }
+
+                    Component {
+                        id: instancePage
+                        Kirigami.Page {
+                            title: name
+
+                            Kirigami.Heading {
+                                level: 1
+                                text: name
+                            }
+
+                            actions.main: Kirigami.Action {
+                                text: "Launch"
+                                icon.name: "media-playback-start"
+                                onTriggered: instancesModel.launch(index)
+                            }
+
+                            Shortcut {
+                                sequences: [ StandardKey.Cancel ]
+                                enabled: isCurrentPage && applicationWindow().pageStack.depth > 1
+                                onActivated: {
+                                    applicationWindow().pageStack.pop()
+                                }
+                            }
                         }
                     }
                 }

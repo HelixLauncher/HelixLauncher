@@ -9,5 +9,7 @@ description = "HelixLauncher GUI"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+cstr = "0.2.11"
 helixlauncher-core = { version = "0.1.0", path = "../helixlauncher-core" }
 qmetaobject = "0.2.7"
+tokio = { version = "1.21.2", features = ["macros", "rt-multi-thread", "fs", "process"] }

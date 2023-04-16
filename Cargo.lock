@@ -486,6 +486,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cstr"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8aa998c33a6d3271e3678950a22134cd7dd27cef86dee1b611b5b14207d1d90b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "cxx"
 version = "1.0.94"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -894,8 +904,10 @@ dependencies = [
 name = "helixlauncher-gui"
 version = "0.1.0"
 dependencies = [
+ "cstr",
  "helixlauncher-core",
  "qmetaobject",
+ "tokio",
 ]
 
 [[package]]
