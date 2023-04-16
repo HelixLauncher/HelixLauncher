@@ -2,9 +2,8 @@
 //! This is an example implementation of the Helix Launcher CLI.
 
 use std::io;
-use std::path::Path;
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use helixlauncher_core::auth::account::{add_account, get_accounts, Account};
@@ -112,8 +111,7 @@ async fn launch_instance(
         config,
         &instance,
         &components,
-        LaunchOptions::default().world(world),
-        account,
+        LaunchOptions::default().world(world).account(account),
     )
     .await?;
     if !dry_run {
@@ -207,8 +205,7 @@ async fn add_account_cmd(config: &Config) {
     let out = minecraft_authenticator
         .initial_auth(add_account_callback)
         .await;
-    if out.is_ok() {
-        let account = out.unwrap();
+    if let Ok(account) = out {
         let username = account.username.clone();
         let uuid = account.uuid.clone();
         let e_out = get_accounts(
@@ -219,9 +216,8 @@ async fn add_account_cmd(config: &Config) {
                 .as_path(),
         );
         let mut exists = false;
-        if e_out.is_ok() {
-            let ex_accounts = e_out.unwrap();
-            for acc in ex_accounts {
+        if let Ok(accounts) = e_out {
+            for acc in accounts {
                 if uuid == acc.uuid {
                     exists = true;
                 }
@@ -237,7 +233,7 @@ async fn add_account_cmd(config: &Config) {
                     .join(DEFAULT_ACCOUNT_JSON)
                     .as_path(),
             );
-            if !add_acc_res.is_ok() {
+            if add_acc_res.is_err() {
                 no_print = true;
             }
         }

@@ -36,7 +36,7 @@ pub fn get_accounts(account_json: &Path) -> Result<Vec<Account>, AccountManagerE
 
 pub fn add_account(mut account: Account, account_json: &Path) -> Result<(), AccountManagerError> {
     let mut accounts: Vec<Account> = get_accounts(account_json)?;
-    if accounts.len() == 0 {
+    if accounts.is_empty() {
         account.selected = true
     }
     accounts.push(account);

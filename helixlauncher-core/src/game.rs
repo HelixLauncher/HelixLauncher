@@ -98,13 +98,19 @@ pub struct PreparedLaunch {
 }
 
 #[derive(Debug, Default)]
+#[non_exhaustive]
 pub struct LaunchOptions {
-    pub world: Option<String>,
+    world: Option<String>,
+    account: Option<Account>, // TODO: should this be a reference?
 }
 
 impl LaunchOptions {
     pub fn world(self, world: Option<String>) -> Self {
         Self { world, ..self }
+    }
+
+    pub fn account(self, account: Option<Account>) -> Self {
+        Self { account, ..self }
     }
 }
 
@@ -241,7 +247,6 @@ pub async fn prepare_launch(
     instance: &instance::Instance,
     components: &MergedComponents,
     launch_options: LaunchOptions,
-    account: Option<Account>,
 ) -> Result<PreparedLaunch> {
     // TODO: global default config
     let java_path = String::from("java"); // FIXME
@@ -278,7 +283,7 @@ pub async fn prepare_launch(
             MinecraftArgument::Always(arg) => arg,
             MinecraftArgument::Conditional { value, feature } => {
                 if !match feature {
-                    component::ConditionFeature::Demo => !account.is_some(), // TODO: implement authentication
+                    component::ConditionFeature::Demo => launch_options.account.is_none(),
                     component::ConditionFeature::QuickPlayWorld => launch_options.world.is_some(),
                     _ => false, // TODO
                 } {
@@ -288,17 +293,15 @@ pub async fn prepare_launch(
             }
         })
     }
-    let mut username = String::from("Player");
-    let mut uuid = String::from("00000000-0000-0000-0000-000000000000");
-    let mut token = String::from("");
-    if let Some(ex_a) = account {
-        let xusername = ex_a.username.clone();
-        let xuuid = ex_a.uuid.clone();
-        let xtoken = ex_a.token.clone();
-        username = xusername;
-        uuid = xuuid;
-        token = xtoken;
-    }
+    let (username, uuid, token) = if let Some(account) = launch_options.account {
+        (account.username, account.uuid, account.token)
+    } else {
+        (
+            String::from("Player"),
+            String::from("00000000-0000-0000-0000-000000000000"),
+            String::new(),
+        )
+    };
     let mut props = HashMap::new();
     props.insert("user.name", username.as_str());
     props.insert("user.uuid", uuid.as_str());
@@ -311,7 +314,7 @@ pub async fn prepare_launch(
     }
 
     if let Some(world) = &launch_options.world {
-        props.insert("launch.world", &world);
+        props.insert("launch.world", world);
     }
 
     // TODO: parallelize
