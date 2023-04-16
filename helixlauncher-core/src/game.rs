@@ -4,11 +4,11 @@ use std::{
     fs::File,
     io,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
 use anyhow::Result;
 use digest::Digest;
+use futures::stream::{self, StreamExt, TryStreamExt};
 use helixlauncher_meta::{
     component::{self, Component, ConditionalClasspathEntry, Hash, MinecraftArgument, Platform},
     index::Index,
@@ -21,7 +21,7 @@ use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use serde::Deserialize;
 use thiserror::Error;
-use tokio::{fs, sync::Semaphore, task::JoinSet};
+use tokio::fs;
 
 use crate::{
     auth::account::Account,
@@ -397,37 +397,25 @@ pub async fn prepare_launch(
     let assets_dir; // outside the block, so that it outlives the block for props
     let unpack_path;
 
-    let mut set = JoinSet::new();
     let client = reqwest::Client::new();
 
     if let Some(assets) = &components.assets {
         assets_dir = config.get_assets_path();
         props.insert("instance.assets_dir", assets_dir.to_str().unwrap());
 
-        let assets_dir = Arc::new(assets_dir.clone());
-
         props.insert("instance.assets_index_name", &assets.id);
         let mut index_path = assets_dir.join("indexes");
         index_path.push(format!("{}.json", assets.id));
-        set.spawn({
-            let client = client.clone();
-            let assets_dir = assets_dir.clone();
-            let id = assets.id.clone();
-            let url = assets.url.clone();
-            let size = assets.size;
-            let sha1 = assets.sha1.to_string();
-            async move {
-                download_file(
-                    &client,
-                    &assets_dir.join("indexes").join(format!("{}.json", id)),
-                    &url,
-                    size,
-                    &Hash::SHA1(sha1),
-                )
-                .await?;
-                Ok::<_, anyhow::Error>(())
-            }
-        });
+        download_file(
+            &client,
+            &assets_dir
+                .join("indexes")
+                .join(format!("{}.json", assets.id)),
+            &assets.url,
+            assets.size,
+            &Hash::SHA1(assets.sha1.to_string()),
+        )
+        .await?;
         let index: AssetIndex = serde_json::from_slice(&fs::read(index_path).await?)?;
         unpack_path = if index.map_to_resources {
             Some(game_dir.join("resources"))
@@ -444,46 +432,40 @@ pub async fn prepare_launch(
             props.insert("instance.virtual_assets_dir", unpack_path.to_str().unwrap());
         }
 
-        let semaphore = Arc::new(Semaphore::new(16));
-        let unpack_path = Arc::new(unpack_path.clone());
-        for (name, Asset { hash, size }) in index.objects {
-            let semaphore = semaphore.clone();
-            let client = client.clone();
-            let assets_dir = assets_dir.clone();
-            let unpack_path = unpack_path.clone();
+        stream::iter(index.objects)
+            .map(Ok)
+            .try_for_each_concurrent(16, |(name, Asset { hash, size })| {
+                let client = client.clone();
+                let assets_dir = assets_dir.clone();
+                let unpack_path = unpack_path.clone();
 
-            set.spawn(async move {
-                let _permit = semaphore.acquire().await?;
-
-                let hash_part = &hash[..2];
-                let mut asset_path = assets_dir.join("objects");
-                asset_path.push(hash_part);
-                asset_path.push(&hash);
-                download_file(
-                    &client,
-                    &asset_path,
-                    &format!("https://resources.download.minecraft.net/{hash_part}/{hash}"),
-                    size,
-                    &Hash::SHA1(hash),
-                )
-                .await?;
-                if let Some(unpack_path) = &*unpack_path {
-                    if !check_path(&name) {
-                        return Err(PrepareError::InvalidFilename {
-                            name: name.to_string(),
-                        })?;
+                async move {
+                    let hash_part = &hash[..2];
+                    let mut asset_path = assets_dir.join("objects");
+                    asset_path.push(hash_part);
+                    asset_path.push(&hash);
+                    download_file(
+                        &client,
+                        &asset_path,
+                        &format!("https://resources.download.minecraft.net/{hash_part}/{hash}"),
+                        size,
+                        &Hash::SHA1(hash),
+                    )
+                    .await?;
+                    if let Some(unpack_path) = unpack_path {
+                        if !check_path(&name) {
+                            return Err(PrepareError::InvalidFilename {
+                                name: name.to_string(),
+                            })?;
+                        }
+                        let unpack_file = unpack_path.join(name);
+                        fs::create_dir_all(unpack_file.parent().unwrap()).await?;
+                        copy_file(&asset_path, &unpack_file)?;
                     }
-                    let unpack_file = unpack_path.join(name);
-                    fs::create_dir_all(unpack_file.parent().unwrap()).await?;
-                    copy_file(&asset_path, &unpack_file)?;
+                    Ok::<_, anyhow::Error>(())
                 }
-                Ok::<_, anyhow::Error>(())
-            });
-        }
-    }
-
-    while let Some(res) = set.join_next().await {
-        res??;
+            })
+            .await?;
     }
 
     for native in &components.natives {
