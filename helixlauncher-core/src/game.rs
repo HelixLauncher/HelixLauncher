@@ -1,9 +1,10 @@
 use std::{
     borrow::{Borrow, Cow},
     collections::{BTreeSet, HashMap, HashSet},
-    fs::{self, File},
+    fs::File,
     io,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::Result;
@@ -20,6 +21,7 @@ use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use serde::Deserialize;
 use thiserror::Error;
+use tokio::{fs, sync::Semaphore, task::JoinSet};
 
 use crate::{
     auth::account::Account,
@@ -206,7 +208,7 @@ fn check_hash(buf: &[u8], hash: &component::Hash) -> (bool, String) {
     (expected == &actual, actual)
 }
 
-fn check_file(path: &Path, size: u32, hash: &component::Hash) -> Result<bool, io::Error> {
+async fn check_file(path: &Path, size: u32, hash: &component::Hash) -> Result<bool, io::Error> {
     // This can be tricked by modifying or deleting the file after or while it is being processed
     // during launch, but let's not consider that an issue.
 
@@ -215,18 +217,24 @@ fn check_file(path: &Path, size: u32, hash: &component::Hash) -> Result<bool, io
         return Ok(false);
     }
 
-    let file = match fs::read(path) {
+    let file = match fs::read(path).await {
         Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
         r => r,
     }?;
     Ok(file.len() == (size as usize) && check_hash(&file, hash).0)
 }
 
-async fn download_file(path: &Path, url: &str, size: u32, hash: &component::Hash) -> Result<()> {
-    if !check_file(path, size, hash)? {
-        fs::create_dir_all(path.parent().unwrap())?;
+async fn download_file(
+    client: &reqwest::Client,
+    path: &Path,
+    url: &str,
+    size: u32,
+    hash: &component::Hash,
+) -> Result<()> {
+    if !check_file(path, size, hash).await? {
+        fs::create_dir_all(path.parent().unwrap()).await?;
         println!("downloading: {}", url);
-        let data = reqwest::get(url).await?.bytes().await?;
+        let data = client.get(url).send().await?.bytes().await?;
         let (hash_matches, actual_hash) = check_hash(&data, hash);
         if data.len() != size as usize || !hash_matches {
             return Err(PrepareError::InvalidFile {
@@ -237,7 +245,7 @@ async fn download_file(path: &Path, url: &str, size: u32, hash: &component::Hash
                 actual_size: data.len(),
             })?;
         }
-        fs::write(path, data)?;
+        fs::write(path, data).await?;
     }
     Ok(())
 }
@@ -342,13 +350,14 @@ pub async fn prepare_launch(
 
     // TODO: this may need some ordering for artifacts with processing dependencies
     // TODO: temporary files for "atomic" writes?
+    let client = reqwest::Client::new();
     for (name, artifact) in needed_artifacts.into_iter() {
         paths.insert(
             name,
             match artifact {
                 Artifact::Download { url, size, hash } => {
                     let path = artifact.get_path(name, config, instance);
-                    download_file(&path, url, *size, hash).await?;
+                    download_file(&client, &path, url, *size, hash).await?;
                     path
                 }
             },
@@ -388,22 +397,38 @@ pub async fn prepare_launch(
     let assets_dir; // outside the block, so that it outlives the block for props
     let unpack_path;
 
+    let mut set = JoinSet::new();
+    let client = reqwest::Client::new();
+
     if let Some(assets) = &components.assets {
         assets_dir = config.get_assets_path();
         props.insert("instance.assets_dir", assets_dir.to_str().unwrap());
+
+        let assets_dir = Arc::new(assets_dir.clone());
+
         props.insert("instance.assets_index_name", &assets.id);
         let mut index_path = assets_dir.join("indexes");
         index_path.push(format!("{}.json", assets.id));
-        download_file(
-            &assets_dir
-                .join("indexes")
-                .join(format!("{}.json", assets.id)),
-            &assets.url,
-            assets.size,
-            &Hash::SHA1(assets.sha1.to_string()),
-        )
-        .await?;
-        let index: AssetIndex = serde_json::from_slice(&fs::read(index_path)?)?;
+        set.spawn({
+            let client = client.clone();
+            let assets_dir = assets_dir.clone();
+            let id = assets.id.clone();
+            let url = assets.url.clone();
+            let size = assets.size;
+            let sha1 = assets.sha1.to_string();
+            async move {
+                download_file(
+                    &client,
+                    &assets_dir.join("indexes").join(format!("{}.json", id)),
+                    &url,
+                    size,
+                    &Hash::SHA1(sha1),
+                )
+                .await?;
+                Ok::<_, anyhow::Error>(())
+            }
+        });
+        let index: AssetIndex = serde_json::from_slice(&fs::read(index_path).await?)?;
         unpack_path = if index.map_to_resources {
             Some(game_dir.join("resources"))
         } else if index.r#virtual {
@@ -419,29 +444,46 @@ pub async fn prepare_launch(
             props.insert("instance.virtual_assets_dir", unpack_path.to_str().unwrap());
         }
 
+        let semaphore = Arc::new(Semaphore::new(16));
+        let unpack_path = Arc::new(unpack_path.clone());
         for (name, Asset { hash, size }) in index.objects {
-            let hash_part = &hash[..2];
-            let mut asset_path = assets_dir.join("objects");
-            asset_path.push(hash_part);
-            asset_path.push(&hash);
-            download_file(
-                &asset_path,
-                &format!("https://resources.download.minecraft.net/{hash_part}/{hash}"),
-                size,
-                &Hash::SHA1(hash),
-            )
-            .await?;
-            if let Some(unpack_path) = &unpack_path {
-                if !check_path(&name) {
-                    return Err(PrepareError::InvalidFilename {
-                        name: name.to_string(),
-                    })?;
+            let semaphore = semaphore.clone();
+            let client = client.clone();
+            let assets_dir = assets_dir.clone();
+            let unpack_path = unpack_path.clone();
+
+            set.spawn(async move {
+                let _permit = semaphore.acquire().await?;
+
+                let hash_part = &hash[..2];
+                let mut asset_path = assets_dir.join("objects");
+                asset_path.push(hash_part);
+                asset_path.push(&hash);
+                download_file(
+                    &client,
+                    &asset_path,
+                    &format!("https://resources.download.minecraft.net/{hash_part}/{hash}"),
+                    size,
+                    &Hash::SHA1(hash),
+                )
+                .await?;
+                if let Some(unpack_path) = &*unpack_path {
+                    if !check_path(&name) {
+                        return Err(PrepareError::InvalidFilename {
+                            name: name.to_string(),
+                        })?;
+                    }
+                    let unpack_file = unpack_path.join(name);
+                    fs::create_dir_all(unpack_file.parent().unwrap()).await?;
+                    copy_file(&asset_path, &unpack_file)?;
                 }
-                let unpack_file = unpack_path.join(name);
-                fs::create_dir_all(unpack_file.parent().unwrap())?;
-                copy_file(&asset_path, &unpack_file)?;
-            }
+                Ok::<_, anyhow::Error>(())
+            });
         }
+    }
+
+    while let Some(res) = set.join_next().await {
+        res??;
     }
 
     for native in &components.natives {
@@ -467,8 +509,8 @@ pub async fn prepare_launch(
                 return Err(PrepareError::InvalidFilename { name })?;
             }
             let path = natives_path.join(name);
-            fs::create_dir_all(path.parent().unwrap())?; // unwrap is safe here, at minimum
-                                                         // there will be the natives folder
+            fs::create_dir_all(path.parent().unwrap()).await?; // unwrap is safe here, at minimum
+                                                               // there will be the natives folder
             io::copy(&mut entry, &mut File::create(path)?)?;
         }
     }
@@ -565,15 +607,15 @@ async fn fetch_component(config: &Config, id: &str, version: &str) -> Result<Com
     .await;
     let mut path = config.get_base_path().join("meta");
     path.push(id);
-    fs::create_dir_all(&path)?;
+    fs::create_dir_all(&path).await?;
     path.push(format!("{version}.json"));
     let component_data = match component_data_result {
-        Err(e) => match fs::read(path) {
+        Err(e) => match fs::read(path).await {
             Err(_) => Err(e)?,
             Ok(r) => r,
         },
         Ok(r) => {
-            fs::write(path, &r)?;
+            fs::write(path, &r).await?;
             r.into()
         }
     };
