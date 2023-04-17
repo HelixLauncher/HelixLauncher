@@ -16,6 +16,67 @@ Kirigami.ApplicationWindow {
             actions.main: Kirigami.Action {
                 icon.name: "list-add"
                 text: "Add instance"
+                onTriggered: applicationWindow().pageStack.pushDialogLayer(addDialog, {}, {
+                    title: "New Instance",
+                    width: Kirigami.Units.gridUnit * 20,
+                    height: Kirigami.Units.gridUnit * 10
+                })
+            }
+
+            Component {
+                id: addDialog
+
+                Kirigami.Page {
+                    id: addPage
+
+                    title: "New Instance"
+
+                    Kirigami.FormLayout {
+                        anchors.fill: parent
+
+                        TextField {
+                            id: instanceName
+                            Kirigami.FormData.label: "Name:"
+                        }
+
+                        TextField {
+                            id: instanceVersion
+                            Kirigami.FormData.label: "Version:"
+                        }
+
+                        ComboBox {
+                            id: instanceLoader
+                            Kirigami.FormData.label: "Loader:"
+                            Kirigami.FormData.checkable: true
+                            enabled: Kirigami.FormData.checked
+
+                            model: ["Quilt", "Fabric", "Forge"]
+                        }
+
+                        TextField {
+                            id: instanceLoaderVersion
+                            Kirigami.FormData.label: "Loader version:"
+                            enabled: instanceLoader.Kirigami.FormData.checked
+                        }
+                    }
+
+                    footer: DialogButtonBox {
+                        standardButtons: DialogButtonBox.Ok | DialogButtonBox.Cancel
+                        position: DialogButtonBox.Footer
+
+                        onAccepted: {
+                            instancesModel.create_instance(
+                                instanceName.text,
+                                instanceVersion.text,
+                                instanceLoader.Kirigami.FormData.checked ? instanceLoader.currentText : "",
+                                instanceLoaderVersion.text
+                            )
+                            addPage.closeDialog()
+                        }
+
+                        onRejected: addPage.closeDialog()
+                    }
+                }
             }
 
             Kirigami.CardsListView {

@@ -1,7 +1,7 @@
 use cstr::cstr;
 use helixlauncher_core::config::Config;
 use helixlauncher_core::game::{merge_components, prepare_launch, LaunchOptions};
-use helixlauncher_core::instance::Instance;
+use helixlauncher_core::instance::{Instance, InstanceLaunch, Modloader};
 use helixlauncher_core::launcher::launch;
 use qmetaobject::prelude::*;
 use qmetaobject::qtquickcontrols2::QQuickStyle;
@@ -15,6 +15,15 @@ pub struct InstancesModel {
     base: qt_base_class!(trait QAbstractListModel),
 
     launch: qt_method!(fn(&self, item: usize)),
+    create_instance: qt_method!(
+        fn(
+            &mut self,
+            name: String,
+            version: String,
+            modloader_string: String,
+            modloader_version: String,
+        )
+    ),
 }
 
 impl InstancesModel {
@@ -40,6 +49,37 @@ impl InstancesModel {
                 launch(&prepared, true).await.unwrap();
             });
         });
+    }
+
+    fn create_instance(
+        &mut self,
+        name: String,
+        version: String,
+        modloader_string: String,
+        modloader_version: String,
+    ) {
+        let config = Config::new("dev.helixlauncher.HelixLauncher", "HelixLauncher").unwrap();
+
+        let modloader = match &*modloader_string {
+            "Quilt" => Modloader::Quilt,
+            "Fabric" => Modloader::Fabric,
+            "Forge" => Modloader::Forge,
+            "" => Modloader::Vanilla,
+            _ => unreachable!(),
+        };
+
+        Instance::new(
+            name,
+            version,
+            InstanceLaunch::default(),
+            &config.get_instances_path(),
+            modloader,
+            Some(modloader_version),
+        )
+        .unwrap();
+
+        self.begin_reset_model();
+        self.end_reset_model();
     }
 }
 
