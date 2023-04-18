@@ -209,7 +209,7 @@ async fn create_instance(
         None
     };
 
-    Instance::new(
+    let instance = Instance::new(
         name,
         version,
         InstanceLaunch::default(),
@@ -217,7 +217,7 @@ async fn create_instance(
         modloader,
         modloader_version,
     )?;
-    println!("Instance \"{}\" created!", name);
+    println!("Instance \"{}\" created!", instance.config.name);
     Ok(())
 }
 async fn list_instances(config: &Config) -> Result<()> {
