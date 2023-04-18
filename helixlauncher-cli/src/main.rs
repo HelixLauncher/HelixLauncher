@@ -34,7 +34,16 @@ enum Command {
     },
 
     /// Creates a new instance
-    Create,
+    Create {
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long, alias("version"))]
+        mc_version: Option<String>,
+        #[arg(long)]
+        modloader: Option<String>,
+        #[arg(long)]
+        modloader_version: Option<String>,
+    },
 
     /// Lists instances
     List,
@@ -65,8 +74,13 @@ async fn main() -> Result<()> {
         } => {
             launch_instance(&config, name, world, dry_run).await?;
         }
-        Command::Create => {
-            create_instance(&config).await?;
+        Command::Create {
+            name,
+            mc_version,
+            modloader,
+            modloader_version,
+        } => {
+            create_instance(&config, name, mc_version, modloader, modloader_version).await?;
         }
         Command::List => {
             list_instances(&config).await?;
@@ -122,31 +136,48 @@ async fn launch_instance(
     Ok(())
 }
 
-async fn create_instance(config: &Config) -> Result<()> {
+async fn create_instance(
+    config: &Config,
+    name_arg: Option<String>,
+    mc_version_arg: Option<String>,
+    modloader_arg: Option<String>,
+    modloader_version_arg: Option<String>,
+) -> Result<()> {
     // creation wizard
     // probably a better way to do this - probably even more so for modloader bit
 
-    println!("Enter instance name: ");
     let mut name = String::new();
-    io::stdin()
-        .read_line(&mut name)
-        .expect("error: unable to read user input");
-    name = name.trim().to_owned();
+    if let Some(sname_arg) = name_arg {
+        name = sname_arg.to_owned();
+    } else {
+        println!("Enter instance name: ");
+        io::stdin()
+            .read_line(&mut name)
+            .expect("error: unable to read user input");
+        name = name.trim().to_owned();
+    }
 
-    println!("Enter minecraft version: ");
     let mut version = String::new();
-    io::stdin()
-        .read_line(&mut version)
-        .expect("error: unable to read user input");
-    version = version.trim().to_owned();
+    if let Some(smc_version_arg) = mc_version_arg {
+        version = smc_version_arg.to_owned();
+    } else {
+        println!("Enter minecraft version: ");
+        io::stdin()
+            .read_line(&mut version)
+            .expect("error: unable to read user input");
+        version = version.trim().to_owned();
+    }
 
-    println!("Enter modloader: ");
     let mut modloader_string = String::new();
-    io::stdin()
-        .read_line(&mut modloader_string)
-        .expect("error: unable to read user input");
-    modloader_string = modloader_string.trim().to_lowercase();
-
+    if let Some(smodloader_arg) = modloader_arg {
+        modloader_string = smodloader_arg.to_owned();
+    } else {
+        println!("Enter modloader: ");
+        io::stdin()
+            .read_line(&mut modloader_string)
+            .expect("error: unable to read user input");
+        modloader_string = modloader_string.trim().to_lowercase();
+    }
     let modloader = match &*modloader_string {
         "quilt" | "quiltmc" => Modloader::Quilt,
         "fabric" | "fabricmc" => Modloader::Fabric,
@@ -162,12 +193,18 @@ async fn create_instance(config: &Config) -> Result<()> {
         modloader,
         Modloader::Quilt | Modloader::Fabric | Modloader::Forge
     ) {
-        println!("Enter modloader version: ");
-        let mut modloader_version = String::new();
-        io::stdin()
-            .read_line(&mut modloader_version)
-            .expect("error: unable to read user input");
-        Some(modloader_version.trim().to_owned())
+        let mut output = Some(String::new());
+        if let Some(smodloader_version_arg) = modloader_version_arg {
+            output = Some(smodloader_version_arg.trim().to_owned());
+        } else {
+            println!("Enter modloader version: ");
+            let mut modloader_version = String::new();
+            io::stdin()
+                .read_line(&mut modloader_version)
+                .expect("error: unable to read user input");
+            output = Some(modloader_version.trim().to_owned());
+        }
+        output
     } else {
         None
     };

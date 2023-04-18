@@ -246,6 +246,7 @@ async fn download_file(
             })?;
         }
         fs::write(path, data).await?;
+        println!("download finished: {}", url);
     }
     Ok(())
 }
