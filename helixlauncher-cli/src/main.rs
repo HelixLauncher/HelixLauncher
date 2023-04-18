@@ -217,7 +217,7 @@ async fn create_instance(
         modloader,
         modloader_version,
     )?;
-
+    println!("Instance \"{}\" created!", name);
     Ok(())
 }
 async fn list_instances(config: &Config) -> Result<()> {
