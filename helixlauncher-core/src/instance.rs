@@ -1,4 +1,5 @@
 use std::{
+    fmt::Display,
     fs::{self, File},
     io::{self, BufReader},
     path::{Path, PathBuf},
@@ -19,11 +20,18 @@ pub enum InstanceManagerError {
     NotAnInstance,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Modloader {
     Quilt,
     Fabric,
     Forge,
     Vanilla,
+}
+
+impl Display for Modloader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 #[derive(Debug)]

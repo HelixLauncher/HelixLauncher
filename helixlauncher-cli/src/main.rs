@@ -1,10 +1,8 @@
 //! Helix Launcher CLI
 //! This is an example implementation of the Helix Launcher CLI.
 
-use std::io;
-
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use helixlauncher_core::auth::account::{add_account, get_accounts, Account};
 use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
@@ -22,6 +20,13 @@ struct HelixLauncher {
     verbosity: Verbosity<InfoLevel>,
 }
 
+#[derive(Debug, ValueEnum, Clone)]
+enum ClapModloader {
+    Fabric,
+    Forge,
+    Quilt,
+}
+
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Launches a new instance
@@ -35,13 +40,13 @@ enum Command {
 
     /// Creates a new instance
     Create {
-        #[arg(long)]
+        #[arg(requires = "version")]
         name: Option<String>,
-        #[arg(long, alias("version"))]
-        mc_version: Option<String>,
-        #[arg(long)]
-        modloader: Option<String>,
-        #[arg(long)]
+        #[arg(long, requires = "name")]
+        version: Option<String>,
+        #[arg(long, requires = "name")]
+        modloader: Option<ClapModloader>,
+        #[arg(long, requires = "modloader")]
         modloader_version: Option<String>,
     },
 
@@ -76,11 +81,11 @@ async fn main() -> Result<()> {
         }
         Command::Create {
             name,
-            mc_version,
+            version,
             modloader,
             modloader_version,
         } => {
-            create_instance(&config, name, mc_version, modloader, modloader_version).await?;
+            create_instance(&config, name, version, modloader, modloader_version).await?;
         }
         Command::List => {
             list_instances(&config).await?;
@@ -138,75 +143,51 @@ async fn launch_instance(
 
 async fn create_instance(
     config: &Config,
-    name_arg: Option<String>,
-    mc_version_arg: Option<String>,
-    modloader_arg: Option<String>,
-    modloader_version_arg: Option<String>,
+    name: Option<String>,
+    version: Option<String>,
+    modloader: Option<ClapModloader>,
+    modloader_version: Option<String>,
 ) -> Result<()> {
     // creation wizard
-    // probably a better way to do this - probably even more so for modloader bit
-
-    let mut name = String::new();
-    if let Some(sname_arg) = name_arg {
-        name = sname_arg.to_owned();
-    } else {
-        println!("Enter instance name: ");
-        io::stdin()
-            .read_line(&mut name)
-            .expect("error: unable to read user input");
-        name = name.trim().to_owned();
-    }
-
-    let mut version = String::new();
-    if let Some(smc_version_arg) = mc_version_arg {
-        version = smc_version_arg.to_owned();
-    } else {
-        println!("Enter minecraft version: ");
-        io::stdin()
-            .read_line(&mut version)
-            .expect("error: unable to read user input");
-        version = version.trim().to_owned();
-    }
-
-    let mut modloader_string = String::new();
-    if let Some(smodloader_arg) = modloader_arg {
-        modloader_string = smodloader_arg.to_owned();
-    } else {
-        println!("Enter modloader: ");
-        io::stdin()
-            .read_line(&mut modloader_string)
-            .expect("error: unable to read user input");
-        modloader_string = modloader_string.trim().to_lowercase();
-    }
-    let modloader = match &*modloader_string {
-        "quilt" | "quiltmc" => Modloader::Quilt,
-        "fabric" | "fabricmc" => Modloader::Fabric,
-        "forge" | "minecraftforge" => Modloader::Forge,
-        "vanilla" => Modloader::Vanilla,
-        _ => {
-            println!("warn: using vanilla for modloader as input is invalid");
-            Modloader::Vanilla
-        }
-    };
-
-    let modloader_version = if matches!(
-        modloader,
-        Modloader::Quilt | Modloader::Fabric | Modloader::Forge
-    ) {
-        let mut output = Some(String::new());
-        if let Some(smodloader_version_arg) = modloader_version_arg {
-            output = Some(smodloader_version_arg.trim().to_owned());
+    let (name, version, modloader, modloader_version) = if let Some(name) = name {
+        let version = version.unwrap(); // required in clap
+        let (modloader, modloader_version) = if let Some(modloader) = modloader {
+            let modloader = match modloader {
+                ClapModloader::Fabric => Modloader::Fabric,
+                ClapModloader::Forge => Modloader::Forge,
+                ClapModloader::Quilt => Modloader::Quilt,
+            };
+            let modloader_version = if let Some(modloader_version) = modloader_version {
+                modloader_version
+            } else {
+                todo!("Modloader version required")
+            };
+            (modloader, Some(modloader_version))
         } else {
-            println!("Enter modloader version: ");
-            let mut modloader_version = String::new();
-            io::stdin()
-                .read_line(&mut modloader_version)
-                .expect("error: unable to read user input");
-            output = Some(modloader_version.trim().to_owned());
-        }
-        output
+            (Modloader::Vanilla, None)
+        };
+        (name, version, modloader, modloader_version)
     } else {
-        None
+        let name = inquire::Text::new("Instance name").prompt()?;
+        let version = inquire::Text::new("Minecraft version").prompt()?;
+        let modloader = inquire::Select::new(
+            "Modloader",
+            vec![
+                Modloader::Vanilla,
+                Modloader::Quilt,
+                Modloader::Forge,
+                Modloader::Fabric,
+            ],
+        )
+        .prompt()?;
+
+        let modloader_version = if modloader != Modloader::Vanilla {
+            // TODO: should we mention the loader in this prompt?
+            Some(inquire::Text::new("Modloader version").prompt()?)
+        } else {
+            None
+        };
+        (name, version, modloader, modloader_version)
     };
 
     let instance = Instance::new(
