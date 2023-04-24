@@ -1,6 +1,6 @@
 use cstr::cstr;
-use qmetaobject::prelude::*;
 use qmetaobject::qtquickcontrols2::QQuickStyle;
+use qmetaobject::{prelude::*, qml_register_singleton_type};
 use std::env;
 
 mod instances;
@@ -21,7 +21,7 @@ fn main() {
 
     register_resources();
 
-    qml_register_type::<instances::InstancesModel>(
+    qml_register_singleton_type::<instances::InstancesModel>(
         cstr!("dev.helixlauncher.qml"),
         1,
         0,

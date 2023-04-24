@@ -7,14 +7,10 @@ import dev.helixlauncher.qml 1.0
 Kirigami.ScrollablePage {
     title: "Instances"
 
-    InstancesModel {
-        id: instancesModel
-    }
-
     actions.main: Kirigami.Action {
         icon.name: "list-add"
         text: "Add instance"
-        onTriggered: applicationWindow().pageStack.pushDialogLayer("qrc:/qml/NewInstancePage.qml", { instancesModel }, {
+        onTriggered: applicationWindow().pageStack.pushDialogLayer("qrc:/qml/NewInstancePage.qml", {}, {
             title: "New Instance",
             width: Kirigami.Units.gridUnit * 20,
             height: Kirigami.Units.gridUnit * 10
@@ -22,13 +18,13 @@ Kirigami.ScrollablePage {
     }
 
     Kirigami.CardsListView {
-        model: instancesModel
+        model: InstancesModel
 
         delegate: Kirigami.AbstractCard {
             showClickFeedback: true
 
             onClicked: {
-                applicationWindow().pageStack.push('qrc:/qml/InstancePage.qml', { name, index, instancesModel })
+                applicationWindow().pageStack.push('qrc:/qml/InstancePage.qml', { name, index })
             }
 
             contentItem: Item {
@@ -84,7 +80,7 @@ Kirigami.ScrollablePage {
                         Button {
                             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
                             text: "Launch"
-                            onClicked: instancesModel.launch(index)
+                            onClicked: InstancesModel.launch(index)
                         }
                     }
                 }

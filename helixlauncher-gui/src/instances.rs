@@ -2,8 +2,8 @@ use helixlauncher_core::config::Config;
 use helixlauncher_core::game::{merge_components, prepare_launch, LaunchOptions};
 use helixlauncher_core::instance::{Instance, InstanceLaunch, Modloader};
 use helixlauncher_core::launcher::launch;
-use qmetaobject::prelude::*;
 use qmetaobject::USER_ROLE;
+use qmetaobject::{prelude::*, QSingletonInit};
 use std::collections::HashMap;
 use tokio::runtime::Runtime;
 
@@ -133,4 +133,8 @@ impl QAbstractListModel for InstancesModel {
         map.insert(USER_ROLE + 2, "version".into());
         map
     }
+}
+
+impl QSingletonInit for InstancesModel {
+    fn init(&mut self) {}
 }
