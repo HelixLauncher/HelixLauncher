@@ -31,6 +31,7 @@ pub async fn launch(
     let classpath = generate_classpath(&prepared_launch.classpath);
     // TODO: hook up javalaunch
     Ok(Command::new(&prepared_launch.java_path)
+        .current_dir(&prepared_launch.working_directory)
         .args(&prepared_launch.jvm_args)
         .arg("-classpath")
         .arg(classpath)

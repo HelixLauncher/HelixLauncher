@@ -92,6 +92,7 @@ pub enum PrepareError {
 
 #[derive(Debug)]
 pub struct PreparedLaunch {
+    pub working_directory: PathBuf,
     pub java_path: String,
     pub jvm_args: Vec<String>,
     pub classpath: Vec<String>,
@@ -234,7 +235,13 @@ async fn download_file(
     if !check_file(path, size, hash).await? {
         fs::create_dir_all(path.parent().unwrap()).await?;
         println!("downloading: {}", url);
-        let data = client.get(url).send().await?.bytes().await?;
+        let data = client
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
         let (hash_matches, actual_hash) = check_hash(&data, hash);
         if data.len() != size as usize || !hash_matches {
             return Err(PrepareError::InvalidFile {
@@ -518,6 +525,7 @@ pub async fn prepare_launch(
                     .into_owned()
             })
             .collect(),
+        working_directory: game_dir,
     })
 }
 
@@ -584,6 +592,7 @@ async fn fetch_component(config: &Config, id: &str, version: &str) -> Result<Com
     let component_data_result = async {
         reqwest::get(format!("{META}{id}/{version}.json"))
             .await?
+            .error_for_status()?
             .bytes()
             .await
     }
