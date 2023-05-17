@@ -2,21 +2,19 @@ use std::{
     collections::HashMap,
     fs::File,
     io,
-    path::{Path, PathBuf}, process::Stdio,
+    path::PathBuf,
+    process::Stdio,
 };
 
 use anyhow::Result;
-use digest::Digest;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use helixlauncher_meta::{
     component::{self, Hash, MinecraftArgument},
     index::Index
 };
 
-use hex::ToHex;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
-use thiserror::Error;
 use tokio::{fs, process::{Command, Child}};
 
 use crate::{

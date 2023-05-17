@@ -8,7 +8,8 @@ use helixlauncher_core::auth::account::{add_account, get_accounts, Account};
 use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
-    game::{merge_components, prepare_launch, LaunchOptions},
+    asset::merge_components,
+    game::{prepare_launch, LaunchOptions},
     instance::{Instance, InstanceLaunch, Modloader}
 };
 
