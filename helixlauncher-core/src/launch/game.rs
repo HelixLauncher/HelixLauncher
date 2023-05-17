@@ -1,6 +1,5 @@
 use std::{
-    borrow::{Borrow, Cow},
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::HashMap,
     fs::File,
     io,
     path::{Path, PathBuf}, process::Stdio,
@@ -10,92 +9,25 @@ use anyhow::Result;
 use digest::Digest;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use helixlauncher_meta::{
-    component::{self, Component, ConditionalClasspathEntry, Hash, MinecraftArgument, Platform},
-    index::Index,
-    util::{GradleSpecifier, CURRENT_ARCH, CURRENT_OS},
+    component::{self, Hash, MinecraftArgument},
+    index::Index
 };
 
 use hex::ToHex;
-use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
-use serde::Deserialize;
 use thiserror::Error;
 use tokio::{fs, process::{Command, Child}};
 
 use crate::{
     auth::account::Account,
     config::Config,
-    util::{check_path, copy_file},
+    util::{check_path, copy_file}, launch::{asset::{AssetIndex, Asset}, PrepareError, download_file},
 };
 
-use super::{instance, generate_classpath, LaunchError};
+use super::{instance, generate_classpath, LaunchError, asset::MergedComponents};
 
 const META: &str = "https://meta.helixlauncher.dev/";
-
-#[derive(Debug)]
-pub struct MergedComponents {
-    pub classpath: Vec<GradleSpecifier>,
-    pub natives: Vec<Native>,
-    pub artifacts: HashMap<GradleSpecifier, Artifact>,
-    pub traits: BTreeSet<component::Trait>,
-    pub assets: Option<component::Assets>,
-    pub game_jar: GradleSpecifier,
-    pub jarmods: Vec<GradleSpecifier>,
-    pub main_class: String,
-    pub arguments: Vec<MinecraftArgument>,
-}
-
-impl MergedComponents {
-    pub fn has_trait(&self, check: component::Trait) -> bool {
-        self.traits.contains(&check)
-    }
-}
-
-#[derive(Debug)]
-pub struct Native {
-    pub name: GradleSpecifier,
-    pub exclusions: Vec<String>,
-}
-
-#[derive(Debug)]
-pub enum Artifact {
-    Download { url: String, size: u32, hash: Hash },
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AssetIndex {
-    #[serde(default)]
-    pub map_to_resources: bool,
-    #[serde(default)]
-    pub r#virtual: bool,
-    #[serde()]
-    pub objects: HashMap<String, Asset>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Asset {
-    pub hash: String,
-    pub size: u32,
-}
-
-#[derive(Debug, Error)]
-pub enum PrepareError {
-    #[error("Download of {url} failed: expected file with {expected_hash} and size {expected_size}, found file with hash {actual_hash} and size {actual_size}")]
-    InvalidFile {
-        url: String,
-        expected_hash: component::Hash,
-        expected_size: u32,
-        actual_hash: String,
-        actual_size: usize,
-    },
-    #[error("Invalid filename found: {name}")]
-    InvalidFilename { name: String },
-    #[error("Feature not supported by the instance: {name}")]
-    UnsupportedFeature { name: String },
-}
 
 #[derive(Debug)]
 pub struct PreparedLaunch {
@@ -164,162 +96,6 @@ impl LaunchOptions {
             )
         }
     }
-}
-
-// TODO: proper error (and progress?) handling
-// TODO: this doesn't handle stuff like Rosetta or running x86 Java on x86_64 at all
-pub async fn merge_components(
-    config: &Config,
-    components: &Vec<instance::Component>,
-) -> Result<MergedComponents> {
-    let mut classpath = IndexMap::new();
-    let mut jarmods = IndexMap::new();
-    let mut traits = BTreeSet::new();
-    let mut artifacts = HashMap::new();
-    let mut natives = vec![];
-    let mut game_jar = None;
-    let mut assets = None;
-    let mut main_class = None;
-    let mut arguments = vec![];
-
-    for component in components {
-        let mut meta = component.into_meta(config).await?;
-        for trait_ in meta.traits {
-            traits.insert(trait_);
-        }
-
-        for native in meta.natives {
-            if platform_matches(native.platform) {
-                natives.push(Native {
-                    name: native.name,
-                    exclusions: native.exclusions,
-                });
-            }
-        }
-
-        // TODO: should we include jarmods after a game jar was defined?
-        if game_jar.is_none() {
-            for jarmod in meta.jarmods {
-                let unversioned_name = GradleSpecifier {
-                    version: String::from(""),
-                    ..jarmod.clone()
-                };
-                jarmods.entry(unversioned_name).or_insert(jarmod);
-            }
-        }
-
-        for classpath_entry in meta.classpath {
-            let name = match classpath_entry {
-                ConditionalClasspathEntry::All(name) => name,
-                ConditionalClasspathEntry::PlatformSpecific { name, platform } => {
-                    if !platform_matches(platform) {
-                        continue;
-                    }
-                    name
-                }
-            };
-            let unversioned_name = GradleSpecifier {
-                version: String::from(""),
-                ..name.clone()
-            };
-            classpath.entry(unversioned_name).or_insert(name);
-        }
-
-        for download in meta.downloads {
-            artifacts
-                .entry(download.name)
-                .or_insert(Artifact::Download {
-                    url: download.url,
-                    size: download.size,
-                    hash: download.hash,
-                });
-        }
-
-        game_jar = game_jar.or(meta.game_jar);
-        assets = assets.or(meta.assets);
-        main_class = main_class.or(meta.main_class);
-
-        // `meta` is going out of scope immediately after, so we don't need to worry about it clearing.
-        arguments.append(&mut meta.game_arguments);
-    }
-
-    Ok(MergedComponents {
-        classpath: classpath.into_values().collect(),
-        natives,
-        artifacts,
-        traits,
-        game_jar: game_jar.unwrap(),
-        assets,
-        jarmods: jarmods.into_values().collect(),
-        main_class: main_class.unwrap(),
-        arguments,
-    })
-}
-
-fn check_hash(buf: &[u8], hash: &component::Hash) -> (bool, String) {
-    let (expected, actual) = match hash {
-        Hash::SHA1(hash) => (hash, sha1::Sha1::digest(buf).encode_hex::<String>()),
-        Hash::SHA256(hash) => (hash, sha2::Sha256::digest(buf).encode_hex::<String>()),
-    };
-    (expected == &actual, actual)
-}
-
-async fn check_file(path: &Path, size: u32, hash: &component::Hash) -> Result<bool, io::Error> {
-    // This can be tricked by modifying or deleting the file after or while it is being processed
-    // during launch, but let's not consider that an issue.
-
-    // TODO: maybe not read in the entire file at once?
-    if !path.try_exists()? {
-        return Ok(false);
-    }
-
-    let file = match fs::read(path).await {
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
-        r => r,
-    }?;
-    Ok(file.len() == (size as usize) && check_hash(&file, hash).0)
-}
-
-async fn download_file(
-    client: &reqwest::Client,
-    path: &Path,
-    url: &str,
-    size: u32,
-    hash: &component::Hash,
-) -> Result<()> {
-    if check_file(path, size, hash).await? {
-        return Ok(());
-    }
-
-    fs::create_dir_all(path.parent().unwrap()).await?;
-
-    println!("downloading: {}", url);
-
-    let data = client
-        .get(url)
-        .send()
-        .await?
-        .error_for_status()?
-        .bytes()
-        .await?;
-
-    let (hash_matches, actual_hash) = check_hash(&data, hash);
-
-    if data.len() != size as usize || !hash_matches {
-        return Err(PrepareError::InvalidFile {
-            url: url.to_string(),
-            expected_hash: hash.clone(),
-            expected_size: size,
-            actual_hash,
-            actual_size: data.len(),
-        })?;
-    }
-
-    fs::write(path, data).await?;
-
-    println!("download finished: {}", url);
-
-    Ok(())
 }
 
 pub async fn prepare_launch(
@@ -394,70 +170,11 @@ pub async fn prepare_launch(
         props.insert("launch.world", world);
     }
 
-    // TODO: parallelize
-    let mut needed_artifacts = HashMap::with_capacity(components.artifacts.len());
+    let paths = components.get_all(config, instance).await?;
 
-    for library in &components.classpath {
-        needed_artifacts
-            .entry(library)
-            .or_insert(&components.artifacts[library]);
-    }
-
-    needed_artifacts
-        .entry(&components.game_jar)
-        .or_insert(&components.artifacts[&components.game_jar]);
-
-    for jarmod in &components.jarmods {
-        needed_artifacts
-            .entry(jarmod)
-            .or_insert(&components.artifacts[jarmod]);
-    }
-
-    for native in &components.natives {
-        needed_artifacts
-            .entry(&native.name)
-            .or_insert(&components.artifacts[&native.name]);
-    }
-
-    let mut paths = HashMap::with_capacity(needed_artifacts.len());
-
-    // TODO: this may need some ordering for artifacts with processing dependencies
-    // TODO: temporary files for "atomic" writes?
-    let client = reqwest::Client::new();
-    for (name, artifact) in needed_artifacts.into_iter() {
-        let value = match artifact {
-            Artifact::Download { url, size, hash } => {
-                let path = artifact.get_path(name, config, instance);
-                download_file(&client, &path, url, *size, hash).await?;
-                path
-            }
-        };
-
-        paths.insert(name, value);
-    }
-
-    let game_jar = if !components.jarmods.is_empty() {
-        let mut minecraft_jar = game_dir.join("bin");
-        minecraft_jar.push("minecraft.jar");
-        let mut zip_writer = zip::ZipWriter::new(File::create(&minecraft_jar)?);
-        let mut written_files = HashSet::new();
-        for jarmod in &components.jarmods {
-            let file = &paths[jarmod];
-            let mut zip = zip::ZipArchive::new(File::open(file)?)?;
-            for i in 0..zip.len() {
-                let file = zip.by_index_raw(i)?;
-                if written_files.insert(file.name().to_string()) {
-                    zip_writer.raw_copy_file(file)?;
-                }
-            }
-        }
-        Cow::Owned(minecraft_jar)
-    } else {
-        Cow::Borrowed(&paths[&components.game_jar])
-    };
+    let game_jar = components.get_jar(&paths, &game_dir)?;
 
     let mut classpath = vec![game_jar
-        .into_owned()
         .into_os_string()
         .into_string()
         .unwrap()];
@@ -596,62 +313,6 @@ pub async fn prepare_launch(
             .collect(),
         working_directory: game_dir,
     })
-}
-
-impl Artifact {
-    fn clean_name(name: &str) -> Cow<'_, str> {
-        lazy_static! {
-            static ref CLEAN_NAME_REGEX: Regex = Regex::new(r"[^a-zA-Z0-9.\-_]|^\.").unwrap();
-        }
-        CLEAN_NAME_REGEX.replace_all(name, "__")
-    }
-
-    fn get_path(
-        &self,
-        name: &GradleSpecifier,
-        config: &Config,
-        instance: &instance::Instance,
-    ) -> PathBuf {
-        match self {
-            Self::Download {
-                url: _,
-                size: _,
-                hash: _,
-            } => {
-                let mut path = config.get_libraries_path();
-                for part in name.group.split('.') {
-                    path.push::<&str>(&Self::clean_name(part));
-                }
-                path.push::<&str>(&Self::clean_name(&name.artifact));
-                path.push::<&str>(&Self::clean_name(&name.version));
-                path.push::<&str>(
-                    Self::clean_name(&format!(
-                        "{}-{}{}.{}",
-                        name.artifact,
-                        name.version,
-                        if let Some(ref classifier) = &name.classifier {
-                            format!("-{}", classifier)
-                        } else {
-                            String::new()
-                        },
-                        name.extension
-                    ))
-                    .borrow(),
-                );
-                path
-            }
-        }
-    }
-}
-
-fn platform_matches(platform: Platform) -> bool {
-    if let Some(arch) = platform.arch && arch != CURRENT_ARCH {
-        return false;
-    }
-    if !platform.os.is_empty() && !platform.os.contains(&CURRENT_OS) {
-        return false;
-    }
-    true
 }
 
 pub async fn version_exists(path: String, version: String) -> bool {

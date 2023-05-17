@@ -116,7 +116,7 @@ impl Component {
 }
 
 const INSTANCE_CONFIG_NAME: &str = "instance.helix.json";
-const SUBDIR_CONFIG_NAME: &str = "directory.helix.json";
+const _SUBDIR_CONFIG_NAME: &str = "directory.helix.json";
 
 impl Instance {
     /// Make a new instance.
