@@ -19,8 +19,7 @@ use tokio::{fs, process::{Command, Child}};
 
 use crate::{
     auth::account::Account,
-    config::Config,
-    util::{check_path, copy_file}
+    config::Config
 };
 
 use super::{
@@ -29,7 +28,9 @@ use super::{
     instance,
     generate_classpath,
     LaunchError,
-    asset::MergedComponents
+    asset::MergedComponents,
+    check_path,
+    copy_file
 };
 
 const META: &str = "https://meta.helixlauncher.dev/";
