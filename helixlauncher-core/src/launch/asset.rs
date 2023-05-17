@@ -273,7 +273,7 @@ pub async fn merge_components(
 }
 
 fn platform_matches(platform: Platform) -> bool {
-    if let Some(arch) = platform.arch && arch != CURRENT_ARCH {
+    if matches!(platform.arch, Some(arch) if arch != CURRENT_ARCH) {
         return false;
     }
     if !platform.os.is_empty() && !platform.os.contains(&CURRENT_OS) {

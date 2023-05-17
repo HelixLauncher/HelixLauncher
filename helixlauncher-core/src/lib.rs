@@ -1,5 +1,5 @@
 #![deny(rust_2018_idioms)]
-#![feature(let_chains)]
+#![deny(unstable_features)]
 
 pub mod auth;
 pub mod config;
