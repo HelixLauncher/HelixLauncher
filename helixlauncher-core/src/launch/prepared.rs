@@ -20,10 +20,17 @@ use tokio::{fs, process::{Command, Child}};
 use crate::{
     auth::account::Account,
     config::Config,
-    util::{check_path, copy_file}, launch::{asset::{AssetIndex, Asset}, PrepareError, download_file},
+    util::{check_path, copy_file}
 };
 
-use super::{instance, generate_classpath, LaunchError, asset::MergedComponents};
+use super::{
+    asset::{AssetIndex, Asset},
+    download_file,
+    instance,
+    generate_classpath,
+    LaunchError,
+    asset::MergedComponents
+};
 
 const META: &str = "https://meta.helixlauncher.dev/";
 
@@ -109,7 +116,7 @@ pub async fn prepare_launch(
 
     if launch_options.has_world() && !components.has_trait(component::Trait::SupportsQuickPlayWorld)
     {
-        return Err(PrepareError::UnsupportedFeature {
+        return Err(LaunchError::UnsupportedFeature {
             name: String::from("Launching into world"),
         })?;
     }
@@ -246,7 +253,7 @@ pub async fn prepare_launch(
                     .await?;
                     if let Some(unpack_path) = unpack_path {
                         if !check_path(&name) {
-                            return Err(PrepareError::InvalidFilename {
+                            return Err(LaunchError::InvalidFilename {
                                 name: name.to_string(),
                             })?;
                         }
@@ -280,7 +287,7 @@ pub async fn prepare_launch(
                 continue;
             }
             if !check_path(&name) {
-                return Err(PrepareError::InvalidFilename { name })?;
+                return Err(LaunchError::InvalidFilename { name })?;
             }
             let path = natives_path.join(name);
             fs::create_dir_all(path.parent().unwrap()).await?; // unwrap is safe here, at minimum

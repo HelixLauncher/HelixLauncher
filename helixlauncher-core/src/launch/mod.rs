@@ -2,7 +2,7 @@
 //! This module crafts system calls to launch a new Minecraft instance.
 
 pub mod asset;
-pub mod game;
+pub mod prepared;
 pub mod instance;
 
 // TODO: Make C API
@@ -22,8 +22,8 @@ const CLASSPATH_SEPARATOR: &str = ";";
 const CLASSPATH_SEPARATOR: &str = ":";
 
 #[derive(Debug, Error)]
-pub enum PrepareError {
-    #[error("Download of {url} failed: expected file with {expected_hash} and size {expected_size}, found file with hash {actual_hash} and size {actual_size}")]
+pub enum LaunchError {
+    #[error("Download of {url} failed: expected file with hash {expected_hash} and size {expected_size}, found file with hash {actual_hash} and size {actual_size}")]
     InvalidFile {
         url: String,
         expected_hash: component::Hash,
@@ -35,10 +35,6 @@ pub enum PrepareError {
     InvalidFilename { name: String },
     #[error("Feature not supported by the instance: {name}")]
     UnsupportedFeature { name: String },
-}
-
-#[derive(Debug, Error)]
-pub enum LaunchError {
     #[error("{0}")]
     IoError(#[from] io::Error),
 }
@@ -73,7 +69,7 @@ async fn download_file(
     let (hash_matches, actual_hash) = check_hash(&data, hash);
 
     if data.len() != size as usize || !hash_matches {
-        return Err(PrepareError::InvalidFile {
+        return Err(LaunchError::InvalidFile {
             url: url.to_string(),
             expected_hash: hash.clone(),
             expected_size: size,

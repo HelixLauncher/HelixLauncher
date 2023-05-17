@@ -30,8 +30,6 @@ pub struct MergedComponents {
 }
 
 impl MergedComponents {
-    
-
     pub fn has_trait(&self, check: component::Trait) -> bool {
         self.traits.contains(&check)
     }
