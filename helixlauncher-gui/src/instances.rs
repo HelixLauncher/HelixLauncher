@@ -1,7 +1,9 @@
 use helixlauncher_core::config::Config;
-use helixlauncher_core::game::{merge_components, prepare_launch, LaunchOptions};
-use helixlauncher_core::instance::{Instance, InstanceLaunch, Modloader};
-use helixlauncher_core::launcher::launch;
+use helixlauncher_core::launch::{
+    game::{merge_components, prepare_launch, LaunchOptions},
+    instance::{Instance, InstanceLaunch, Modloader},
+    launch,
+};
 use qmetaobject::USER_ROLE;
 use qmetaobject::{prelude::*, QSingletonInit};
 use std::collections::HashMap;

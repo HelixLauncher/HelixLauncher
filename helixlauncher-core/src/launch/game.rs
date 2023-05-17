@@ -26,9 +26,10 @@ use tokio::fs;
 use crate::{
     auth::account::Account,
     config::Config,
-    instance,
     util::{check_path, copy_file},
 };
+
+use super::instance;
 
 const META: &str = "https://meta.helixlauncher.dev/";
 
@@ -43,6 +44,12 @@ pub struct MergedComponents {
     pub jarmods: Vec<GradleSpecifier>,
     pub main_class: String,
     pub arguments: Vec<MinecraftArgument>,
+}
+
+impl MergedComponents {
+    pub fn has_trait(&self, check: component::Trait) -> bool {
+        self.traits.contains(&check)
+    }
 }
 
 #[derive(Debug)]
@@ -115,6 +122,26 @@ impl LaunchOptions {
     pub fn account(self, account: Option<Account>) -> Self {
         Self { account, ..self }
     }
+
+    pub fn has_world(&self) -> bool {
+        self.world.is_some()
+    }
+
+    pub fn account_or_default(&self) -> (String, String, String) {
+        if let Some(account) = &self.account {
+            (
+                account.username.to_string(),
+                account.uuid.to_string(),
+                account.token.to_string(),
+            )
+        } else {
+            (
+                "Player".to_string(),
+                "00000000-0000-0000-0000-000000000000".to_string(),
+                String::new(),
+            )
+        }
+    }
 }
 
 // TODO: proper error (and progress?) handling
@@ -134,11 +161,12 @@ pub async fn merge_components(
     let mut arguments = vec![];
 
     for component in components {
-        let component = fetch_component(config, &component.id, &component.version).await?;
-        for trait_ in component.traits {
+        let mut meta = component.into_meta(config).await?;
+        for trait_ in meta.traits {
             traits.insert(trait_);
         }
-        for native in component.natives {
+
+        for native in meta.natives {
             if platform_matches(native.platform) {
                 natives.push(Native {
                     name: native.name,
@@ -146,9 +174,10 @@ pub async fn merge_components(
                 });
             }
         }
+
         // TODO: should we include jarmods after a game jar was defined?
         if game_jar.is_none() {
-            for jarmod in component.jarmods {
+            for jarmod in meta.jarmods {
                 let unversioned_name = GradleSpecifier {
                     version: String::from(""),
                     ..jarmod.clone()
@@ -156,7 +185,8 @@ pub async fn merge_components(
                 jarmods.entry(unversioned_name).or_insert(jarmod);
             }
         }
-        for classpath_entry in component.classpath {
+
+        for classpath_entry in meta.classpath {
             let name = match classpath_entry {
                 ConditionalClasspathEntry::All(name) => name,
                 ConditionalClasspathEntry::PlatformSpecific { name, platform } => {
@@ -172,7 +202,8 @@ pub async fn merge_components(
             };
             classpath.entry(unversioned_name).or_insert(name);
         }
-        for download in component.downloads {
+
+        for download in meta.downloads {
             artifacts
                 .entry(download.name)
                 .or_insert(Artifact::Download {
@@ -181,13 +212,15 @@ pub async fn merge_components(
                     hash: download.hash,
                 });
         }
-        game_jar = game_jar.or(component.game_jar);
-        assets = assets.or(component.assets);
-        main_class = main_class.or(component.main_class);
-        for argument in component.game_arguments {
-            arguments.push(argument);
-        }
+
+        game_jar = game_jar.or(meta.game_jar);
+        assets = assets.or(meta.assets);
+        main_class = main_class.or(meta.main_class);
+
+        // `meta` is going out of scope immediately after, so we don't need to worry about it clearing.
+        arguments.append(&mut meta.game_arguments);
     }
+
     Ok(MergedComponents {
         classpath: classpath.into_values().collect(),
         natives,
@@ -232,29 +265,38 @@ async fn download_file(
     size: u32,
     hash: &component::Hash,
 ) -> Result<()> {
-    if !check_file(path, size, hash).await? {
-        fs::create_dir_all(path.parent().unwrap()).await?;
-        println!("downloading: {}", url);
-        let data = client
-            .get(url)
-            .send()
-            .await?
-            .error_for_status()?
-            .bytes()
-            .await?;
-        let (hash_matches, actual_hash) = check_hash(&data, hash);
-        if data.len() != size as usize || !hash_matches {
-            return Err(PrepareError::InvalidFile {
-                url: url.to_string(),
-                expected_hash: hash.clone(),
-                expected_size: size,
-                actual_hash,
-                actual_size: data.len(),
-            })?;
-        }
-        fs::write(path, data).await?;
-        println!("download finished: {}", url);
+    if check_file(path, size, hash).await? {
+        return Ok(());
     }
+
+    fs::create_dir_all(path.parent().unwrap()).await?;
+
+    println!("downloading: {}", url);
+
+    let data = client
+        .get(url)
+        .send()
+        .await?
+        .error_for_status()?
+        .bytes()
+        .await?;
+
+    let (hash_matches, actual_hash) = check_hash(&data, hash);
+
+    if data.len() != size as usize || !hash_matches {
+        return Err(PrepareError::InvalidFile {
+            url: url.to_string(),
+            expected_hash: hash.clone(),
+            expected_size: size,
+            actual_hash,
+            actual_size: data.len(),
+        })?;
+    }
+
+    fs::write(path, data).await?;
+
+    println!("download finished: {}", url);
+
     Ok(())
 }
 
@@ -269,10 +311,7 @@ pub async fn prepare_launch(
     let game_dir = instance.get_game_dir();
     let natives_path = instance.path.join("natives");
 
-    if launch_options.world.is_some()
-        && !components
-            .traits
-            .contains(&component::Trait::SupportsQuickPlayWorld)
+    if launch_options.has_world() && !components.has_trait(component::Trait::SupportsQuickPlayWorld)
     {
         return Err(PrepareError::UnsupportedFeature {
             name: String::from("Launching into world"),
@@ -284,18 +323,22 @@ pub async fn prepare_launch(
         String::from("-Duser.language=en"),
         format!("-Djava.library.path={}", natives_path.to_str().unwrap()),
     ];
+
     if let Some(allocation) = &instance.config.launch.allocation {
         jvm_args.append(&mut vec![
             format!("-Xms{}M", allocation.min),
             format!("-Xmx{}M", allocation.max),
         ]);
     }
+
     if let Some(instance_jvm_args) = &instance.config.launch.jvm_args {
         jvm_args.append(&mut instance_jvm_args.clone());
     }
+
     let mut args = vec![];
+
     for argument in &components.arguments {
-        args.push(match argument {
+        let arg = match argument {
             MinecraftArgument::Always(arg) => arg,
             MinecraftArgument::Conditional { value, feature } => {
                 if !match feature {
@@ -307,17 +350,13 @@ pub async fn prepare_launch(
                 }
                 value
             }
-        })
+        };
+
+        args.push(arg);
     }
-    let (username, uuid, token) = if let Some(account) = launch_options.account {
-        (account.username, account.uuid, account.token)
-    } else {
-        (
-            String::from("Player"),
-            String::from("00000000-0000-0000-0000-000000000000"),
-            String::new(),
-        )
-    };
+
+    let (username, uuid, token) = launch_options.account_or_default();
+
     let mut props = HashMap::new();
     props.insert("user.name", username.as_str());
     props.insert("user.uuid", uuid.as_str());
@@ -335,19 +374,23 @@ pub async fn prepare_launch(
 
     // TODO: parallelize
     let mut needed_artifacts = HashMap::with_capacity(components.artifacts.len());
+
     for library in &components.classpath {
         needed_artifacts
             .entry(library)
             .or_insert(&components.artifacts[library]);
     }
+
     needed_artifacts
         .entry(&components.game_jar)
         .or_insert(&components.artifacts[&components.game_jar]);
+
     for jarmod in &components.jarmods {
         needed_artifacts
             .entry(jarmod)
             .or_insert(&components.artifacts[jarmod]);
     }
+
     for native in &components.natives {
         needed_artifacts
             .entry(&native.name)
@@ -360,16 +403,15 @@ pub async fn prepare_launch(
     // TODO: temporary files for "atomic" writes?
     let client = reqwest::Client::new();
     for (name, artifact) in needed_artifacts.into_iter() {
-        paths.insert(
-            name,
-            match artifact {
-                Artifact::Download { url, size, hash } => {
-                    let path = artifact.get_path(name, config, instance);
-                    download_file(&client, &path, url, *size, hash).await?;
-                    path
-                }
-            },
-        );
+        let value = match artifact {
+            Artifact::Download { url, size, hash } => {
+                let path = artifact.get_path(name, config, instance);
+                download_file(&client, &path, url, *size, hash).await?;
+                path
+            }
+        };
+
+        paths.insert(name, value);
     }
 
     let game_jar = if !components.jarmods.is_empty() {
@@ -398,9 +440,11 @@ pub async fn prepare_launch(
         .into_string()
         .unwrap()];
 
-    for entry in &components.classpath {
-        classpath.push(paths[entry].to_str().unwrap().to_string());
-    }
+    components
+        .classpath
+        .clone()
+        .into_iter()
+        .for_each(|entry| classpath.push(paths[&entry].to_str().unwrap().to_string()));
 
     let assets_dir; // outside the block, so that it outlives the block for props
     let unpack_path;
@@ -414,6 +458,7 @@ pub async fn prepare_launch(
         props.insert("instance.assets_index_name", &assets.id);
         let mut index_path = assets_dir.join("indexes");
         index_path.push(format!("{}.json", assets.id));
+
         download_file(
             &client,
             &assets_dir
@@ -424,7 +469,9 @@ pub async fn prepare_launch(
             &Hash::SHA1(assets.sha1.to_string()),
         )
         .await?;
+
         let index: AssetIndex = serde_json::from_slice(&fs::read(index_path).await?)?;
+
         unpack_path = if index.map_to_resources {
             Some(game_dir.join("resources"))
         } else if index.r#virtual {
@@ -576,42 +623,13 @@ impl Artifact {
 }
 
 fn platform_matches(platform: Platform) -> bool {
-    if let Some(arch) = platform.arch {
-        if arch != CURRENT_ARCH {
-            return false;
-        }
+    if let Some(arch) = platform.arch && arch != CURRENT_ARCH {
+        return false;
     }
     if !platform.os.is_empty() && !platform.os.contains(&CURRENT_OS) {
         return false;
     }
     true
-}
-
-async fn fetch_component(config: &Config, id: &str, version: &str) -> Result<Component> {
-    // TODO: better caching
-    let component_data_result = async {
-        reqwest::get(format!("{META}{id}/{version}.json"))
-            .await?
-            .error_for_status()?
-            .bytes()
-            .await
-    }
-    .await;
-    let mut path = config.get_base_path().join("meta");
-    path.push(id);
-    fs::create_dir_all(&path).await?;
-    path.push(format!("{version}.json"));
-    let component_data = match component_data_result {
-        Err(e) => match fs::read(path).await {
-            Err(_) => Err(e)?,
-            Ok(r) => r,
-        },
-        Ok(r) => {
-            fs::write(path, &r).await?;
-            r.into()
-        }
-    };
-    Ok(serde_json::from_slice(&component_data)?)
 }
 
 pub async fn version_exists(path: String, version: String) -> bool {

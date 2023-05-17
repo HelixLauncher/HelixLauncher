@@ -5,8 +5,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Result;
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::config::Config;
+
+const META: &str = "https://meta.helixlauncher.dev/";
 
 #[derive(Error, Debug)]
 pub enum InstanceManagerError {
@@ -70,6 +76,43 @@ pub struct RamAllocation {
 pub struct Component {
     pub id: String,
     pub version: String,
+}
+
+impl Component {
+    pub async fn into_meta(
+        &self,
+        config: &Config,
+    ) -> Result<helixlauncher_meta::component::Component> {
+        // TODO: better caching
+        let component_data_result = async {
+            reqwest::get(format!("{META}{}/{}.json", self.id, self.version))
+                .await?
+                .error_for_status()?
+                .bytes()
+                .await
+        }
+        .await;
+
+        let mut path = config.get_base_path().join("meta");
+        path.push(self.id.clone());
+
+        tokio::fs::create_dir_all(&path).await?;
+
+        path.push(format!("{}.json", self.version));
+
+        let component_data = match component_data_result {
+            Err(e) => match tokio::fs::read(path).await {
+                Err(_) => Err(e)?,
+                Ok(r) => r,
+            },
+            Ok(r) => {
+                tokio::fs::write(path, &r).await?;
+                r.into()
+            }
+        };
+
+        Ok(serde_json::from_slice(&component_data)?)
+    }
 }
 
 const INSTANCE_CONFIG_NAME: &str = "instance.helix.json";

@@ -1,10 +1,9 @@
 #![deny(rust_2018_idioms)]
+#![feature(let_chains)]
 
 pub mod auth;
 pub mod config;
-pub mod game;
-pub mod instance;
-pub mod launcher;
+pub mod launch;
 mod util;
 
 #[no_mangle]

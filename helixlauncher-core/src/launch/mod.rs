@@ -1,12 +1,15 @@
 //! Launching mechanism for Helix.
 //! This module crafts system calls to launch a new Minecraft instance.
 
+pub mod game;
+pub mod instance;
+
 // TODO: Make C API
 
 use std::{io, process::Stdio};
 use tokio::process::{Child, Command};
 
-use crate::game::PreparedLaunch;
+use game::PreparedLaunch;
 use thiserror::Error;
 
 #[cfg(target_os = "windows")]

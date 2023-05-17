@@ -7,9 +7,11 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 use helixlauncher_core::auth::account::{add_account, get_accounts, Account};
 use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
-use helixlauncher_core::game::{merge_components, prepare_launch, LaunchOptions};
-use helixlauncher_core::instance::{Instance, InstanceLaunch, Modloader};
-use helixlauncher_core::launcher::launch;
+use helixlauncher_core::launch::{
+    game::{merge_components, prepare_launch, LaunchOptions},
+    instance::{Instance, InstanceLaunch, Modloader},
+    launch,
+};
 
 #[derive(Parser, Debug)]
 struct HelixLauncher {

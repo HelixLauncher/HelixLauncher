@@ -13,3 +13,5 @@ libhelix/libhelix.h
 
 # Vim
 *.sw[op]
+
+logs
