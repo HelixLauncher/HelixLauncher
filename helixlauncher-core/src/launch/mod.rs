@@ -6,10 +6,8 @@ pub mod instance;
 
 // TODO: Make C API
 
-use std::{io, process::Stdio};
-use tokio::process::{Child, Command};
+use std::io;
 
-use game::PreparedLaunch;
 use thiserror::Error;
 
 #[cfg(target_os = "windows")]
@@ -21,29 +19,6 @@ const CLASSPATH_SEPARATOR: &str = ":";
 pub enum LaunchError {
     #[error("{0}")]
     IoError(#[from] io::Error),
-}
-
-// TODO: add better API for log output
-pub async fn launch(
-    prepared_launch: &PreparedLaunch,
-    inherit_out: bool,
-) -> Result<Child, LaunchError> {
-    if !inherit_out {
-        todo!();
-    }
-    let classpath = generate_classpath(&prepared_launch.classpath);
-    // TODO: hook up javalaunch
-    Ok(Command::new(&prepared_launch.java_path)
-        .current_dir(&prepared_launch.working_directory)
-        .args(&prepared_launch.jvm_args)
-        .arg("-classpath")
-        .arg(classpath)
-        .arg(&prepared_launch.main_class)
-        .args(&prepared_launch.args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .spawn()?)
 }
 
 fn generate_classpath(classpath: &[String]) -> String {

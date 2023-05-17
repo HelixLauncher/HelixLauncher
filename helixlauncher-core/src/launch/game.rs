@@ -3,7 +3,7 @@ use std::{
     collections::{BTreeSet, HashMap, HashSet},
     fs::File,
     io,
-    path::{Path, PathBuf},
+    path::{Path, PathBuf}, process::Stdio,
 };
 
 use anyhow::Result;
@@ -21,7 +21,7 @@ use lazy_static::lazy_static;
 use regex::{Captures, Regex};
 use serde::Deserialize;
 use thiserror::Error;
-use tokio::fs;
+use tokio::{fs, process::{Command, Child}};
 
 use crate::{
     auth::account::Account,
@@ -29,7 +29,7 @@ use crate::{
     util::{check_path, copy_file},
 };
 
-use super::instance;
+use super::{instance, generate_classpath, LaunchError};
 
 const META: &str = "https://meta.helixlauncher.dev/";
 
@@ -105,6 +105,28 @@ pub struct PreparedLaunch {
     pub classpath: Vec<String>,
     pub main_class: String,
     pub args: Vec<String>,
+}
+
+impl PreparedLaunch {
+    // TODO: add better API for log output
+    pub async fn launch(&self, inherit_out: bool) -> Result<Child, LaunchError> {
+        if !inherit_out {
+            todo!();
+        }
+        let classpath = generate_classpath(&self.classpath);
+        // TODO: hook up javalaunch
+        Ok(Command::new(&self.java_path)
+            .current_dir(&self.working_directory)
+            .args(&self.jvm_args)
+            .arg("-classpath")
+            .arg(classpath)
+            .arg(&self.main_class)
+            .args(&self.args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()?)
+    }
 }
 
 #[derive(Debug, Default)]

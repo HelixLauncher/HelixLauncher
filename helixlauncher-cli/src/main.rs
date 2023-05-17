@@ -9,8 +9,7 @@ use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
     game::{merge_components, prepare_launch, LaunchOptions},
-    instance::{Instance, InstanceLaunch, Modloader},
-    launch,
+    instance::{Instance, InstanceLaunch, Modloader}
 };
 
 #[derive(Parser, Debug)]
@@ -136,7 +135,7 @@ async fn launch_instance(
     )
     .await?;
     if !dry_run {
-        launch(&prepared, true).await?.wait().await?;
+        prepared.launch(true).await?.wait().await?;
     } else {
         println!("{:?}", prepared);
     }

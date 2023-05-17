@@ -1,8 +1,7 @@
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
     game::{merge_components, prepare_launch, LaunchOptions},
-    instance::{Instance, InstanceLaunch, Modloader},
-    launch,
+    instance::{Instance, InstanceLaunch, Modloader}
 };
 use qmetaobject::USER_ROLE;
 use qmetaobject::{prelude::*, QSingletonInit};
@@ -45,7 +44,7 @@ impl InstancesModel {
                         .await
                         .unwrap();
 
-                launch(&prepared, true).await.unwrap();
+                prepared.launch(true).await.unwrap();
             });
         });
     }
