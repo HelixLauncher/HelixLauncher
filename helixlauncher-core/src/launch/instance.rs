@@ -26,7 +26,8 @@ pub enum InstanceManagerError {
     NotAnInstance,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Modloader {
     Quilt,
     Fabric,

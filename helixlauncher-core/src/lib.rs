@@ -1,6 +1,7 @@
 #![deny(rust_2018_idioms)]
 #![deny(unstable_features)]
 
+pub mod addon;
 pub mod auth;
 pub mod config;
 pub mod launch;
