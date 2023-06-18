@@ -2,12 +2,15 @@
 //! This module crafts system calls to launch a new Minecraft instance.
 
 pub mod asset;
-pub mod prepared;
 pub mod instance;
+pub mod prepared;
 
 // TODO: Make C API
 
-use std::{io, path::{self, Path}};
+use std::{
+    io,
+    path::{self, Path},
+};
 
 use anyhow::Result;
 use digest::Digest;

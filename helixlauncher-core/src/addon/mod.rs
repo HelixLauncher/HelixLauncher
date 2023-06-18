@@ -1,15 +1,15 @@
 pub mod curseforge;
 pub mod modrinth;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::launch::instance::{Modloader, Instance};
+use crate::launch::instance::{Instance, Modloader};
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 enum ApiKind {
     Curseforge,
-    Modrinth
+    Modrinth,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -21,7 +21,7 @@ enum AddonKind {
     Resource,
     /// Old versions use `texturepacks`, this is easier than supplying a version number
     Texture,
-    Shader
+    Shader,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -29,7 +29,7 @@ struct AddonLocation {
     /// Determines what api we should use to download the file
     pub api: ApiKind,
     /// The version currently downloaded
-    pub version_id: String
+    pub version_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -45,7 +45,7 @@ struct Addon {
     /// File hash to check against
     pub hash: String,
     /// Location data for the origin
-    pub location: AddonLocation
+    pub location: AddonLocation,
 }
 
 impl AddonKind {
@@ -64,21 +64,21 @@ impl AddonLocation {
     pub fn curseforge(version_id: String) -> Self {
         Self {
             api: ApiKind::Curseforge,
-            version_id
+            version_id,
         }
     }
 
     pub fn modrinth(version_id: String) -> Self {
         Self {
             api: ApiKind::Modrinth,
-            version_id
+            version_id,
         }
     }
 
     pub fn download(&self, instance: &Instance) {
         match self.api {
             ApiKind::Curseforge => self.download_curseforge(instance),
-            ApiKind::Modrinth => self.download_modrinth(instance)
+            ApiKind::Modrinth => self.download_modrinth(instance),
         }
     }
 }

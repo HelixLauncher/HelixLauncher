@@ -1,8 +1,8 @@
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
     asset::merge_components,
+    instance::{Instance, InstanceLaunch, Modloader},
     prepared::{prepare_launch, LaunchOptions},
-    instance::{Instance, InstanceLaunch, Modloader}
 };
 use qmetaobject::USER_ROLE;
 use qmetaobject::{prelude::*, QSingletonInit};

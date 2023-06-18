@@ -1,11 +1,15 @@
 use std::{
-    collections::{HashMap, BTreeSet, HashSet},
     borrow::{Borrow, Cow},
-    path::PathBuf, fs::File
+    collections::{BTreeSet, HashMap, HashSet},
+    fs::File,
+    path::PathBuf,
 };
 
 use anyhow::Result;
-use helixlauncher_meta::{util::{GradleSpecifier, CURRENT_ARCH, CURRENT_OS}, component::{self, MinecraftArgument, Hash, ConditionalClasspathEntry, Platform}};
+use helixlauncher_meta::{
+    component::{self, ConditionalClasspathEntry, Hash, MinecraftArgument, Platform},
+    util::{GradleSpecifier, CURRENT_ARCH, CURRENT_OS},
+};
 use indexmap::IndexMap;
 use regex::Regex;
 use serde::Deserialize;
@@ -14,7 +18,10 @@ use lazy_static::lazy_static;
 
 use crate::config::Config;
 
-use super::{instance::{self, Instance}, download_file};
+use super::{
+    download_file,
+    instance::{self, Instance},
+};
 
 #[derive(Debug)]
 pub struct MergedComponents {
@@ -35,7 +42,11 @@ impl MergedComponents {
     }
 
     // TODO: parallelize
-    pub async fn get_all(&self, config: &Config, instance: &Instance) -> Result<HashMap<&GradleSpecifier, PathBuf>> {
+    pub async fn get_all(
+        &self,
+        config: &Config,
+        instance: &Instance,
+    ) -> Result<HashMap<&GradleSpecifier, PathBuf>> {
         let mut needed_artifacts = HashMap::with_capacity(self.artifacts.len());
 
         for library in &self.classpath {
@@ -66,16 +77,19 @@ impl MergedComponents {
         // TODO: temporary files for "atomic" writes?
         let client = reqwest::Client::new();
         for (name, artifact) in needed_artifacts.into_iter() {
-
             paths.insert(name, artifact.get(name, &client, config, instance).await?);
         }
 
         return Ok(paths);
     }
 
-    pub fn get_jar(&self, paths: &HashMap<&GradleSpecifier, PathBuf>, game_dir: &PathBuf) -> Result<PathBuf> {
+    pub fn get_jar(
+        &self,
+        paths: &HashMap<&GradleSpecifier, PathBuf>,
+        game_dir: &PathBuf,
+    ) -> Result<PathBuf> {
         if self.jarmods.is_empty() {
-            return Ok(paths[&self.game_jar].clone())
+            return Ok(paths[&self.game_jar].clone());
         }
         let mut minecraft_jar = game_dir.join("bin");
         minecraft_jar.push("minecraft.jar");
@@ -118,7 +132,7 @@ impl Artifact {
         &self,
         name: &GradleSpecifier,
         config: &Config,
-        _instance: &Instance
+        _instance: &Instance,
     ) -> PathBuf {
         match self {
             Self::Download {
@@ -151,7 +165,13 @@ impl Artifact {
         }
     }
 
-    pub async fn get(&self, name: &GradleSpecifier, client: &reqwest::Client, config: &Config, instance: &Instance) -> Result<PathBuf> {
+    pub async fn get(
+        &self,
+        name: &GradleSpecifier,
+        client: &reqwest::Client,
+        config: &Config,
+        instance: &Instance,
+    ) -> Result<PathBuf> {
         let value = match self {
             Artifact::Download { url, size, hash } => {
                 let path = self.get_path(name, config, instance);

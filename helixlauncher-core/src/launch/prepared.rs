@@ -1,36 +1,25 @@
-use std::{
-    collections::HashMap,
-    fs::File,
-    io,
-    path::PathBuf,
-    process::Stdio,
-};
+use std::{collections::HashMap, fs::File, io, path::PathBuf, process::Stdio};
 
 use anyhow::Result;
 use futures::stream::{self, StreamExt, TryStreamExt};
 use helixlauncher_meta::{
     component::{self, Hash, MinecraftArgument},
-    index::Index
+    index::Index,
 };
 
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
-use tokio::{fs, process::{Command, Child}};
-
-use crate::{
-    auth::account::Account,
-    config::Config
+use tokio::{
+    fs,
+    process::{Child, Command},
 };
 
+use crate::{auth::account::Account, config::Config};
+
 use super::{
-    asset::{AssetIndex, Asset},
-    download_file,
-    instance,
-    generate_classpath,
-    LaunchError,
     asset::MergedComponents,
-    check_path,
-    copy_file
+    asset::{Asset, AssetIndex},
+    check_path, copy_file, download_file, generate_classpath, instance, LaunchError,
 };
 
 const META: &str = "https://meta.helixlauncher.dev/";
@@ -180,10 +169,7 @@ pub async fn prepare_launch(
 
     let game_jar = components.get_jar(&paths, &game_dir)?;
 
-    let mut classpath = vec![game_jar
-        .into_os_string()
-        .into_string()
-        .unwrap()];
+    let mut classpath = vec![game_jar.into_os_string().into_string().unwrap()];
 
     components
         .classpath
