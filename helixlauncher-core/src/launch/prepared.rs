@@ -14,12 +14,16 @@ use tokio::{
     process::{Child, Command},
 };
 
-use crate::{auth::account::Account, config::Config};
+use crate::{
+    auth::account::Account,
+    config::Config,
+    fsutil::{check_path, copy_file},
+};
 
 use super::{
     asset::MergedComponents,
     asset::{Asset, AssetIndex},
-    check_path, copy_file, download_file, generate_classpath, instance, LaunchError,
+    download_file, generate_classpath, instance, LaunchError,
 };
 
 const META: &str = "https://meta.helixlauncher.dev/";

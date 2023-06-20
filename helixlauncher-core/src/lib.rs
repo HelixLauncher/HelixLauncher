@@ -4,6 +4,7 @@
 pub mod addon;
 pub mod auth;
 pub mod config;
+mod fsutil;
 pub mod launch;
 
 #[no_mangle]
