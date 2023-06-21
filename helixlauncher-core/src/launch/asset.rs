@@ -2,7 +2,7 @@ use std::{
     borrow::{Borrow, Cow},
     collections::{BTreeSet, HashMap, HashSet},
     fs::File,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::Result;
@@ -74,19 +74,18 @@ impl MergedComponents {
         let mut paths = HashMap::with_capacity(needed_artifacts.len());
 
         // TODO: this may need some ordering for artifacts with processing dependencies
-        // TODO: temporary files for "atomic" writes?
         let client = reqwest::Client::new();
         for (name, artifact) in needed_artifacts.into_iter() {
             paths.insert(name, artifact.get(name, &client, config, instance).await?);
         }
 
-        return Ok(paths);
+        Ok(paths)
     }
 
     pub fn get_jar(
         &self,
         paths: &HashMap<&GradleSpecifier, PathBuf>,
-        game_dir: &PathBuf,
+        game_dir: &Path,
     ) -> Result<PathBuf> {
         if self.jarmods.is_empty() {
             return Ok(paths[&self.game_jar].clone());
@@ -180,7 +179,7 @@ impl Artifact {
             }
         };
 
-        return Ok(value);
+        Ok(value)
     }
 }
 
