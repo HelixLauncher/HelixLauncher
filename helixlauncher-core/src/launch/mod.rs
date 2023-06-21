@@ -7,12 +7,16 @@ pub mod prepared;
 
 // TODO: Make C API
 
-use std::{io, path::Path};
+use std::{
+    io::{self, Write},
+    path::Path,
+};
 
 use anyhow::Result;
 use digest::Digest;
 use helixlauncher_meta::component::{self, Hash};
 use hex::ToHex;
+use tempfile_fast::Sponge;
 use thiserror::Error;
 use tokio::fs;
 
@@ -78,7 +82,13 @@ async fn download_file(
         })?;
     }
 
-    fs::write(path, data).await?;
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let mut file = Sponge::new_for(path)?;
+        file.write_all(&data)?;
+        anyhow::Ok(file.commit()?)
+    })
+    .await??;
 
     println!("download finished: {}", url);
 
