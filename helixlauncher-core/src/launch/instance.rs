@@ -51,17 +51,19 @@ pub struct Instance {
 pub struct InstanceConfig {
     pub name: String,
     pub components: Vec<Component>,
-    pub launch: InstanceLaunch,
+    pub launch: InstanceLaunchConfig,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug)]
-pub struct InstanceLaunch {
+pub struct InstanceLaunchConfig {
     // Options are taken from launcher settings if absent
     pub args: Option<Vec<String>>,
     pub jvm_args: Option<Vec<String>>,
     pub prelaunch_command: Option<String>,
     pub postlaunch_command: Option<String>,
     pub allocation: Option<RamAllocation>,
+    pub javapath: Option<String>, // FIXME: this is less than ideal, needs more settings and better
+                                  // defaults
     // javaagent: Option<PathBuf>,
 }
 
@@ -130,7 +132,7 @@ impl Instance {
     pub fn new(
         name: String,
         mc_version: String,
-        launch: InstanceLaunch,
+        launch: InstanceLaunchConfig,
         instances_dir: &Path,
         modloader: Modloader,
         modloader_version: Option<String>,

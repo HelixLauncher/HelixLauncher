@@ -9,7 +9,7 @@ use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
     asset::merge_components,
-    instance::{Instance, InstanceLaunch, Modloader},
+    instance::{Instance, InstanceLaunchConfig, Modloader},
     prepared::{prepare_launch, LaunchOptions},
 };
 
@@ -195,7 +195,7 @@ async fn create_instance(
     let instance = Instance::new(
         name,
         version,
-        InstanceLaunch::default(),
+        InstanceLaunchConfig::default(),
         &config.get_instances_path(),
         modloader,
         modloader_version,

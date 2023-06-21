@@ -104,7 +104,7 @@ pub async fn prepare_launch(
     launch_options: LaunchOptions,
 ) -> Result<PreparedLaunch> {
     // TODO: global default config
-    let java_path = String::from("java"); // FIXME
+    let java_path = instance.config.launch.javapath.as_ref().map_or("java", |s| &s).to_string(); // TODO
     let game_dir = instance.get_game_dir();
     let natives_path = instance.path.join("natives");
 
