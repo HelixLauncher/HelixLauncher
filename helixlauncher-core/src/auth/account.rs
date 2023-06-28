@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{self, BufReader},
-    path::Path,
+    path::PathBuf,
 };
 use thiserror::Error;
 
@@ -15,34 +15,41 @@ pub enum AccountManagerError {
     IoError(#[from] std::io::Error),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Account {
     pub uuid: String,
     pub username: String,
     pub refresh_token: String,
     pub token: String,
-    pub selected: bool,
 }
 
-pub fn get_accounts(account_json: &Path) -> Result<Vec<Account>, AccountManagerError> {
-    // try to open file, return empty if file doesnt exist
-    Ok(serde_json::from_reader(BufReader::new(
-        match File::open(account_json) {
-            Err(err) if err.kind() == io::ErrorKind::NotFound => return Ok(vec![]),
-            result => result,
-        }?,
-    ))?)
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AccountConfig {
+    pub accounts: Vec<Account>,
+    pub selected: usize,
+    #[serde(skip)]
+    path: PathBuf,
 }
 
-pub fn add_account(mut account: Account, account_json: &Path) -> Result<(), AccountManagerError> {
-    let mut accounts: Vec<Account> = get_accounts(account_json)?;
-    if accounts.is_empty() {
-        account.selected = true
+impl AccountConfig {
+    pub fn new(account_json: PathBuf) -> Result<AccountConfig, AccountManagerError> {
+        Ok(serde_json::from_reader(BufReader::new(
+            match File::open(&account_json) {
+                Err(err) if err.kind() == io::ErrorKind::NotFound => {
+                    return Ok(AccountConfig {
+                        accounts: vec![],
+                        path: account_json,
+                        selected: 0,
+                    })
+                }
+                result => result,
+            }?,
+        ))?)
     }
-    accounts.push(account);
 
-    let writer = File::create(account_json)?;
-    serde_json::to_writer_pretty(writer, &accounts)?;
-
-    Ok(())
+    pub fn save(&self) -> Result<(), AccountManagerError> {
+        let writer = File::create(&self.path)?;
+        serde_json::to_writer_pretty(writer, self)?;
+        Ok(())
+    }
 }

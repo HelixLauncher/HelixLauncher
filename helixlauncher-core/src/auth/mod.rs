@@ -181,19 +181,18 @@ impl MinecraftAuthenticator {
             username: profile_response.name,
             refresh_token,
             token: minecraft_response.access_token,
-            selected: false,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::path::PathBuf;
 
     use crate::auth::MinecraftAuthenticator;
 
     use super::{
-        account::{add_account, get_accounts},
+        account::AccountConfig,
         DEFAULT_ACCOUNT_JSON,
     };
 
@@ -213,12 +212,14 @@ mod tests {
 
         println!("{}", serde_json::to_string(&account).unwrap());
 
-        add_account(account, Path::new(DEFAULT_ACCOUNT_JSON)).unwrap();
+        let mut account_config = AccountConfig::new(PathBuf::from(DEFAULT_ACCOUNT_JSON)).unwrap();
+        account_config.accounts.push(account);
+        account_config.save().unwrap();
     }
 
     #[test]
     fn test_account_storage() {
-        for account in get_accounts(Path::new(DEFAULT_ACCOUNT_JSON)).unwrap() {
+        for account in AccountConfig::new(PathBuf::from(DEFAULT_ACCOUNT_JSON)).unwrap().accounts {
             println!("{}", serde_json::to_string(&account).unwrap());
         }
     }

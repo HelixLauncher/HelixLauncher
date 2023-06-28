@@ -1,10 +1,10 @@
 //! Helix Launcher CLI
 //! This is an example implementation of the Helix Launcher CLI.
 
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use helixlauncher_core::auth::account::{add_account, get_accounts, Account};
+use helixlauncher_core::auth::account::{Account, AccountConfig};
 use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
@@ -93,10 +93,10 @@ async fn main() -> Result<()> {
             list_instances(&config).await?;
         }
         Command::AccountList => {
-            get_accounts_cmd(&config).await;
+            get_accounts_cmd(&config).await?;
         }
         Command::AccountNew => {
-            add_account_cmd(&config).await;
+            add_account_cmd(&config).await?;
         }
         Command::AccountSelect => {
             todo!();
@@ -115,19 +115,11 @@ async fn launch_instance(
     let instance = Instance::from_path(config.get_instances_path().join(name))?;
     let components = merge_components(config, &instance.config.components).await?;
 
-    let accounts = get_accounts(
-        config
-            .get_base_path()
-            .as_path()
-            .join(DEFAULT_ACCOUNT_JSON)
-            .as_path(),
-    )?;
-    let mut account: Option<Account> = None;
-    for a in accounts {
-        if a.selected {
-            account = Some(a)
-        }
-    }
+    let accounts = AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
+    let account: Option<Account> = accounts
+        .accounts
+        .get(accounts.selected)
+        .map(|it| it.clone());
     let prepared = prepare_launch(
         config,
         &instance,
@@ -219,62 +211,32 @@ fn add_account_callback(code: String, uri: String, message: String) {
     println!("message: {}", message);
 }
 
-async fn add_account_cmd(config: &Config) {
+async fn add_account_cmd(config: &Config) -> Result<()> {
     let minecraft_authenticator: MinecraftAuthenticator =
         MinecraftAuthenticator::new("1d644380-5a23-4a84-89c3-5d29615fbac2");
-    let out = minecraft_authenticator
+    let account = minecraft_authenticator
         .initial_auth(add_account_callback)
-        .await;
-    if let Ok(account) = out {
-        let username = account.username.clone();
-        let uuid = account.uuid.clone();
-        let e_out = get_accounts(
-            config
-                .get_base_path()
-                .as_path()
-                .join(DEFAULT_ACCOUNT_JSON)
-                .as_path(),
-        );
-        let mut exists = false;
-        if let Ok(accounts) = e_out {
-            for acc in accounts {
-                if uuid == acc.uuid {
-                    exists = true;
-                }
-            }
-        }
-        let mut no_print = false;
-        if !exists {
-            let add_acc_res = add_account(
-                account,
-                config
-                    .get_base_path()
-                    .as_path()
-                    .join(DEFAULT_ACCOUNT_JSON)
-                    .as_path(),
-            );
-            if add_acc_res.is_err() {
-                no_print = true;
-            }
-        }
-        if !no_print {
-            println!("Welcome! You are logged in as: {}", username);
-        }
+        .await?;
+    let username = account.username.clone();
+    let mut account_config =
+        AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
+    let exists = account_config
+        .accounts
+        .iter()
+        .any(|it| it.uuid == account.uuid);
+    if !exists {
+        account_config.accounts.push(account);
+        account_config.save()?;
     }
+    println!("Welcome! You are logged in as: {}", username);
+    Ok(())
 }
 
-async fn get_accounts_cmd(config: &Config) {
-    let out = get_accounts(
-        config
-            .get_base_path()
-            .as_path()
-            .join(DEFAULT_ACCOUNT_JSON)
-            .as_path(),
-    );
-    if out.is_ok() {
-        let accounts = out.unwrap();
-        for account in accounts {
-            println!("- {}", account.username);
-        }
+async fn get_accounts_cmd(config: &Config) -> Result<()> {
+    let account_config =
+        AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
+    for account in account_config.accounts {
+        println!("- {}", account.username);
     }
+    Ok(())
 }
