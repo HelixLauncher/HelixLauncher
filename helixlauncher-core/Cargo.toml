@@ -32,5 +32,8 @@ anyhow = "1.0.69" # FIXME: remove
 futures = "0.3.28"
 tempfile-fast = "0.3.4"
 
+[dev-dependencies]
+tempfile = "3.6.0"
+
 [build-dependencies]
 cbindgen = { version = "0.24", optional = true }

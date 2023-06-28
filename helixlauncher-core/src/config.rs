@@ -61,7 +61,7 @@ impl Config {
     }
 
     pub fn new_with_data_dir(_appid: &str, _name: &str, path: PathBuf) -> Result<Self, Error> {
-        let config = if !path.exists() {
+        let config = if !path.join(CONFIG_NAME).exists() {
             if let Err(e) = fs::create_dir_all(&path) {
                 if e.kind() == io::ErrorKind::PermissionDenied {
                     return Err(Error::PermissionDenied(e));
@@ -164,4 +164,25 @@ fn get_base_path() -> PathBuf {
     dirs::data_dir()
         .or_else(|| env::current_dir().ok())
         .unwrap()
+}
+
+#[cfg(test)]
+mod tests {
+    use anyhow::{Result, Ok};
+
+    use crate::config::Config;
+    
+    #[tokio::test]
+    async fn create_config_in_non_existing_dir() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _ =  Config::new_with_data_dir("","",dir.path().join("abc"))?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn create_config_in_existing_dir() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _ =  Config::new_with_data_dir("","",dir.path().to_path_buf())?;
+        Ok(())
+    }
 }
