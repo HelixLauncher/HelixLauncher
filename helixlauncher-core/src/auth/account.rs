@@ -26,7 +26,8 @@ pub struct Account {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccountConfig {
     pub accounts: Vec<Account>,
-    pub selected: usize,
+    /// The UUID of the selected account
+    pub selected: String,
     #[serde(skip)]
     path: PathBuf,
 }
@@ -39,7 +40,7 @@ impl AccountConfig {
                     return Ok(AccountConfig {
                         accounts: vec![],
                         path: account_json,
-                        selected: 0,
+                        selected: String::new(),
                     })
                 }
                 result => result,

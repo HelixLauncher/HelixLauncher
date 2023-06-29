@@ -115,11 +115,12 @@ async fn launch_instance(
     let instance = Instance::from_path(config.get_instances_path().join(name))?;
     let components = merge_components(config, &instance.config.components).await?;
 
-    let accounts = AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
-    let account: Option<Account> = accounts
+    let account_config =
+        AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
+    let account: Option<Account> = account_config
         .accounts
-        .get(accounts.selected)
-        .map(|it| it.clone());
+        .into_iter()
+        .find(|it| it.uuid == account_config.selected);
     let prepared = prepare_launch(
         config,
         &instance,
