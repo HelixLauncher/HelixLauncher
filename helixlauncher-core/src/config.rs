@@ -168,21 +168,21 @@ fn get_base_path() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::{Result, Ok};
+    use anyhow::{Ok, Result};
 
     use crate::config::Config;
-    
+
     #[tokio::test]
     async fn create_config_in_non_existing_dir() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let _ =  Config::new_with_data_dir("","",dir.path().join("abc"))?;
+        let _ = Config::new_with_data_dir("", "", dir.path().join("abc"))?;
         Ok(())
     }
 
     #[tokio::test]
     async fn create_config_in_existing_dir() -> Result<()> {
         let dir = tempfile::tempdir()?;
-        let _ =  Config::new_with_data_dir("","",dir.path().to_path_buf())?;
+        let _ = Config::new_with_data_dir("", "", dir.path().to_path_buf())?;
         Ok(())
     }
 }
