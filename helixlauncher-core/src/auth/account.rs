@@ -23,7 +23,7 @@ pub struct Account {
     pub token: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct AccountConfig {
     pub accounts: Vec<Account>,
     pub selected: usize,
