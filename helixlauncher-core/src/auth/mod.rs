@@ -191,10 +191,7 @@ mod tests {
 
     use crate::auth::MinecraftAuthenticator;
 
-    use super::{
-        account::AccountConfig,
-        DEFAULT_ACCOUNT_JSON,
-    };
+    use super::{account::AccountConfig, DEFAULT_ACCOUNT_JSON};
 
     #[tokio::test]
     #[ignore = "broken"]
@@ -219,7 +216,10 @@ mod tests {
 
     #[test]
     fn test_account_storage() {
-        for account in AccountConfig::new(PathBuf::from(DEFAULT_ACCOUNT_JSON)).unwrap().accounts {
+        for account in AccountConfig::new(PathBuf::from(DEFAULT_ACCOUNT_JSON))
+            .unwrap()
+            .accounts
+        {
             println!("{}", serde_json::to_string(&account).unwrap());
         }
     }
