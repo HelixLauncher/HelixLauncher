@@ -1,0 +1,26 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+    # TODO: look into setting up Qt
+    - name: Build
+      run: cargo build --verbose --workspace --exclude helixlauncher-gui
+    - name: Run tests
+      run: cargo test --verbose --workspace --exclude helixlauncher-gui
+    - name: Check formatting
+      run: cargo fmt --check

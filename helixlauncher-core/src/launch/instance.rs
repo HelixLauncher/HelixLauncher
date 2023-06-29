@@ -64,7 +64,6 @@ pub struct InstanceLaunchConfig {
     pub allocation: Option<RamAllocation>,
     pub javapath: Option<String>, // FIXME: this is less than ideal, needs more settings and better
                                   // defaults
-    // javaagent: Option<PathBuf>,
 }
 
 type Mebibytes = u32;
@@ -125,9 +124,15 @@ impl Instance {
     /// Make a new instance.
     ///
     /// ```
-    /// let name = "New instance";
-    /// let instances_dir = PathBuf::from(r"/home/user/.launcher/instance/");
-    /// let instance = Instance::new(name, InstanceLaunch::default());
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # use helixlauncher_core::launch::instance::{Instance, InstanceLaunchConfig, Modloader};
+    /// # use std::path::PathBuf;
+    /// # let data_tempdir = tempfile::tempdir()?;
+    /// # let data_dir = data_tempdir.path();
+    /// let instances_dir = data_dir.join("instances");
+    /// let instance = Instance::new(String::from("New instance"), String::from("1.20"), InstanceLaunchConfig::default(), &instances_dir, Modloader::Vanilla, None);
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn new(
         name: String,
@@ -187,7 +192,7 @@ impl Instance {
     /// Fetch instance from its path.
     ///
     /// ```
-    /// # use helixlauncher_core::instance::Instance;
+    /// # use helixlauncher_core::launch::instance::Instance;
     /// let instance = Instance::from_path(r"/home/user/.launcher/instance/minecraft");
     /// ```
     pub fn from_path<P: AsRef<Path>>(path: P) -> Result<Self, InstanceManagerError> {
