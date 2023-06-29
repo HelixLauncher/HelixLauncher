@@ -1,7 +1,7 @@
 //! Helix Launcher CLI
 //! This is an example implementation of the Helix Launcher CLI.
 
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use helixlauncher_core::auth::account::{Account, AccountConfig};

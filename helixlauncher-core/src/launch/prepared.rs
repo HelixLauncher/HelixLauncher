@@ -258,7 +258,7 @@ pub async fn prepare_launch(
                         fs::create_dir_all(unpack_file.parent().unwrap()).await?;
                         copy_file(&asset_path, &unpack_file)?;
                     }
-                    Ok::<_, anyhow::Error>(())
+                    anyhow::Ok(())
                 }
             })
             .await?;
