@@ -7,9 +7,6 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#ifndef APSTUDIO_INVOKED
-#include "targetver.h"
-#endif
 #define APSTUDIO_HIDDEN_SYMBOLS
 #include "windows.h"
 #undef APSTUDIO_HIDDEN_SYMBOLS
@@ -36,9 +33,6 @@ END
 
 2 TEXTINCLUDE 
 BEGIN
-    "#ifndef APSTUDIO_INVOKED\n"
-    "#include ""targetver.h""\n"
-    "#endif\n"
     "#define APSTUDIO_HIDDEN_SYMBOLS\n"
     "#include ""windows.h""\n"
     "#undef APSTUDIO_HIDDEN_SYMBOLS\n"
