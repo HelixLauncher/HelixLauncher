@@ -27,7 +27,7 @@ pub struct Account {
 pub struct AccountConfig {
     pub accounts: Vec<Account>,
     /// The UUID of the selected account
-    pub selected: Option<String>,
+    pub default: Option<String>,
     #[serde(skip)]
     path: PathBuf,
 }
@@ -40,7 +40,7 @@ impl AccountConfig {
                     return Ok(AccountConfig {
                         accounts: vec![],
                         path: account_json,
-                        selected: None,
+                        default: None,
                     })
                 }
                 result => result,

@@ -117,7 +117,7 @@ async fn launch_instance(
 
     let account_config =
         AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
-    let account = account_config.selected.and_then(|selected| {
+    let account = account_config.default.and_then(|selected| {
         account_config
             .accounts
             .into_iter()
@@ -230,13 +230,14 @@ async fn add_account_cmd(config: &Config) -> Result<()> {
     match stored_account {
         None => {
             if account_config.accounts.len() == 0 {
-                account_config.selected = Some(account.uuid.clone())
+                account_config.default = Some(account.uuid.clone())
             }
             account_config.accounts.push(account);
         }
         Some(stored_account) => {
             stored_account.refresh_token = account.refresh_token;
             stored_account.username = account.username;
+            stored_account.token = account.token;
         }
     }
     account_config.save()?;
