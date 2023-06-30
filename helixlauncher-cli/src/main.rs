@@ -4,7 +4,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
-use helixlauncher_core::auth::account::{Account, AccountConfig};
+use helixlauncher_core::auth::account::AccountConfig;
 use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
@@ -117,10 +117,12 @@ async fn launch_instance(
 
     let account_config =
         AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
-    let account: Option<Account> = account_config
-        .accounts
-        .into_iter()
-        .find(|it| it.uuid == account_config.selected);
+    let account = account_config.selected.and_then(|selected| {
+        account_config
+            .accounts
+            .into_iter()
+            .find(|it| it.uuid == selected)
+    });
     let prepared = prepare_launch(
         config,
         &instance,
@@ -221,14 +223,23 @@ async fn add_account_cmd(config: &Config) -> Result<()> {
     let username = account.username.clone();
     let mut account_config =
         AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
-    let exists = account_config
+    let stored_account = account_config
         .accounts
-        .iter()
-        .any(|it| it.uuid == account.uuid);
-    if !exists {
-        account_config.accounts.push(account);
-        account_config.save()?;
+        .iter_mut()
+        .find(|it| it.uuid == account.uuid);
+    match stored_account {
+        None => {
+            if account_config.accounts.len() == 0 {
+                account_config.selected = Some(account.uuid.clone())
+            }
+            account_config.accounts.push(account);
+        }
+        Some(stored_account) => {
+            stored_account.refresh_token = account.refresh_token;
+            stored_account.username = account.username;
+        }
     }
+    account_config.save()?;
     println!("Welcome! You are logged in as: {}", username);
     Ok(())
 }
