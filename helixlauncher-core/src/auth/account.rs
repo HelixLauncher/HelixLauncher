@@ -34,8 +34,8 @@ pub struct AccountConfig {
 
 impl AccountConfig {
     pub fn new(account_json: PathBuf) -> Result<AccountConfig, AccountManagerError> {
-        Ok(serde_json::from_reader(BufReader::new(
-            match File::open(&account_json) {
+        let mut account_config: AccountConfig =
+            serde_json::from_reader(BufReader::new(match File::open(&account_json) {
                 Err(err) if err.kind() == io::ErrorKind::NotFound => {
                     return Ok(AccountConfig {
                         accounts: vec![],
@@ -44,8 +44,9 @@ impl AccountConfig {
                     })
                 }
                 result => result,
-            }?,
-        ))?)
+            }?))?;
+        account_config.path = account_json;
+        Ok(account_config)
     }
 
     pub fn save(&self) -> Result<(), AccountManagerError> {

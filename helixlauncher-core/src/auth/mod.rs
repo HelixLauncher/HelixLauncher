@@ -223,4 +223,15 @@ mod tests {
             println!("{}", serde_json::to_string(&account).unwrap());
         }
     }
+
+    #[test]
+    fn test_load_and_save_existing_storage() {
+        let dir = tempfile::tempdir().unwrap();
+        let accounts =
+            AccountConfig::new(dir.path().to_path_buf().join(DEFAULT_ACCOUNT_JSON)).unwrap();
+        accounts.save().unwrap();
+        let accounts =
+            AccountConfig::new(dir.path().to_path_buf().join(DEFAULT_ACCOUNT_JSON)).unwrap();
+        accounts.save().unwrap();
+    }
 }
