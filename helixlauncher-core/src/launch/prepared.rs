@@ -62,7 +62,7 @@ impl PreparedLaunch {
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
-pub struct LaunchOptions <'a> {
+pub struct LaunchOptions<'a> {
     world: Option<String>,
     account: Option<&'a Account>, // TODO: should this be a reference?
 }
@@ -72,7 +72,7 @@ impl LaunchOptions<'_> {
         Self { world, ..self }
     }
 
-    pub fn account <'a> (self, account: Option<&'a Account>) -> LaunchOptions<'a> {
+    pub fn account<'a>(self, account: Option<&'a Account>) -> LaunchOptions<'a> {
         LaunchOptions { account, ..self }
     }
 
