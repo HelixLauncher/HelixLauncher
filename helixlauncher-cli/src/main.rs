@@ -120,7 +120,7 @@ async fn launch_instance(
     let account = account_config.default.and_then(|selected| {
         account_config
             .accounts
-            .into_iter()
+            .iter()
             .find(|it| it.uuid == selected)
     });
     let prepared = prepare_launch(
