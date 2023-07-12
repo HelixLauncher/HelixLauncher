@@ -54,4 +54,18 @@ impl AccountConfig {
         serde_json::to_writer_pretty(writer, self)?;
         Ok(())
     }
+
+    /// returns the account specified in the [default](`AccountConfig::default`) field, or the first, if only a single account exists and no default is specified
+    pub fn selected(&self) -> Option<&Account> {
+        match &self.default {
+            Some(uuid) => self.accounts.iter().find(|it| it.uuid == *uuid),
+            None => {
+                if self.accounts.len() == 1 {
+                    Some(&self.accounts[0])
+                } else {
+                    None
+                }
+            }
+        }
+    }
 }

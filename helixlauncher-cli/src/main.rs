@@ -117,17 +117,13 @@ async fn launch_instance(
 
     let account_config =
         AccountConfig::new(config.get_base_path().as_path().join(DEFAULT_ACCOUNT_JSON))?;
-    let account = account_config.default.and_then(|selected| {
-        account_config
-            .accounts
-            .iter()
-            .find(|it| it.uuid == selected)
-    });
     let prepared = prepare_launch(
         config,
         &instance,
         &components,
-        LaunchOptions::default().world(world).account(account),
+        LaunchOptions::default()
+            .world(world)
+            .account(account_config.selected()),
     )
     .await?;
     if !dry_run {
