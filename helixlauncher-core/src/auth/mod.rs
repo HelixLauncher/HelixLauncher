@@ -181,21 +181,17 @@ impl MinecraftAuthenticator {
             username: profile_response.name,
             refresh_token,
             token: minecraft_response.access_token,
-            selected: false,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+    use std::path::PathBuf;
 
     use crate::auth::MinecraftAuthenticator;
 
-    use super::{
-        account::{add_account, get_accounts},
-        DEFAULT_ACCOUNT_JSON,
-    };
+    use super::{account::AccountConfig, DEFAULT_ACCOUNT_JSON};
 
     #[tokio::test]
     #[ignore = "broken"]
@@ -213,13 +209,29 @@ mod tests {
 
         println!("{}", serde_json::to_string(&account).unwrap());
 
-        add_account(account, Path::new(DEFAULT_ACCOUNT_JSON)).unwrap();
+        let mut account_config = AccountConfig::new(PathBuf::from(DEFAULT_ACCOUNT_JSON)).unwrap();
+        account_config.accounts.push(account);
+        account_config.save().unwrap();
     }
 
     #[test]
     fn test_account_storage() {
-        for account in get_accounts(Path::new(DEFAULT_ACCOUNT_JSON)).unwrap() {
+        for account in AccountConfig::new(PathBuf::from(DEFAULT_ACCOUNT_JSON))
+            .unwrap()
+            .accounts
+        {
             println!("{}", serde_json::to_string(&account).unwrap());
         }
+    }
+
+    #[test]
+    fn test_load_and_save_existing_storage() {
+        let dir = tempfile::tempdir().unwrap();
+        let accounts =
+            AccountConfig::new(dir.path().to_path_buf().join(DEFAULT_ACCOUNT_JSON)).unwrap();
+        accounts.save().unwrap();
+        let accounts =
+            AccountConfig::new(dir.path().to_path_buf().join(DEFAULT_ACCOUNT_JSON)).unwrap();
+        accounts.save().unwrap();
     }
 }

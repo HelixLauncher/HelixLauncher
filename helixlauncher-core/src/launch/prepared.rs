@@ -62,18 +62,18 @@ impl PreparedLaunch {
 
 #[derive(Debug, Default)]
 #[non_exhaustive]
-pub struct LaunchOptions {
+pub struct LaunchOptions<'a> {
     world: Option<String>,
-    account: Option<Account>, // TODO: should this be a reference?
+    account: Option<&'a Account>, // TODO: should this be a reference?
 }
 
-impl LaunchOptions {
+impl LaunchOptions<'_> {
     pub fn world(self, world: Option<String>) -> Self {
         Self { world, ..self }
     }
 
-    pub fn account(self, account: Option<Account>) -> Self {
-        Self { account, ..self }
+    pub fn account<'a>(self, account: Option<&'a Account>) -> LaunchOptions<'a> {
+        LaunchOptions { account, ..self }
     }
 
     pub fn has_world(&self) -> bool {
@@ -81,7 +81,7 @@ impl LaunchOptions {
     }
 
     pub fn account_or_default(&self) -> (String, String, String) {
-        if let Some(account) = &self.account {
+        if let Some(account) = self.account {
             (
                 account.username.to_string(),
                 account.uuid.to_string(),
@@ -101,7 +101,7 @@ pub async fn prepare_launch(
     config: &Config,
     instance: &instance::Instance,
     components: &MergedComponents,
-    launch_options: LaunchOptions,
+    launch_options: LaunchOptions<'_>,
 ) -> Result<PreparedLaunch> {
     // TODO: global default config
     let java_path = instance
@@ -258,7 +258,7 @@ pub async fn prepare_launch(
                         fs::create_dir_all(unpack_file.parent().unwrap()).await?;
                         copy_file(&asset_path, &unpack_file)?;
                     }
-                    Ok::<_, anyhow::Error>(())
+                    anyhow::Ok(())
                 }
             })
             .await?;
