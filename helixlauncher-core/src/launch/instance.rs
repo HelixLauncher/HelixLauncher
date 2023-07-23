@@ -156,10 +156,13 @@ impl Instance {
         }];
 
         if let Some(modloader_component_id) = modloader_component_id {
-            components.push(Component {
-                id: String::from(modloader_component_id),
-                version: modloader_version.unwrap(),
-            });
+            components.insert(
+                Component {
+                    id: String::from(modloader_component_id),
+                    version: modloader_version.unwrap(),
+                },
+                0,
+            );
         }
 
         // make instance folder & skeleton (try to avoid collisions)
