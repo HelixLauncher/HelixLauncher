@@ -157,11 +157,11 @@ impl Instance {
 
         if let Some(modloader_component_id) = modloader_component_id {
             components.insert(
+                0,
                 Component {
                     id: String::from(modloader_component_id),
                     version: modloader_version.unwrap(),
                 },
-                0,
             );
         }
 
