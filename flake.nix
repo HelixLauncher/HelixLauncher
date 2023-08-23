@@ -13,7 +13,7 @@
         };
       in
         with pkgs; rec {
-          devShells.default = mkShell {
+          devShells.default = mkShell rec {
             buildInputs = [
               (rust-bin.stable.latest.default.override {
                 extensions = [ "rust-src" ];
@@ -27,10 +27,26 @@
               pkg-config
             ];
 
+            gameLibs = (with xorg; [
+              libX11
+              libXext
+              libXcursor
+              libXrandr
+              libXxf86vm
+            ])
+            ++ [
+              libpulseaudio
+              libGL
+              glfw
+              openal
+              stdenv.cc.cc.lib
+            ];
+
             shellHook = ''
             export QT_LIBRARY_PATH="${qt5.qtbase}/lib"
             export QT_INCLUDE_PATH="${qt5.qtbase.dev}/include"
             export QML2_IMPORT_PATH=${qt5.qtdeclarative.bin}/${qt5.qtbase.qtQmlPrefix}:${qt5.qtquickcontrols2.bin}/${qt5.qtbase.qtQmlPrefix}:${plasma5Packages.qqc2-desktop-style.bin}/${qt5.qtbase.qtQmlPrefix}:${plasma5Packages.kirigami2}/${qt5.qtbase.qtQmlPrefix}
+            export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${lib.makeLibraryPath gameLibs}"
             '';
           };
         });
