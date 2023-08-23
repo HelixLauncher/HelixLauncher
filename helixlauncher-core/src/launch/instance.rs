@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{
     config::Config,
-    meta::{ComponentMetaRetrievalError, HelixLauncherMeta},
+    meta::{ComponentMetaRetrievalError, MetaClient},
 };
 
 #[derive(Error, Debug)]
@@ -84,7 +84,7 @@ impl Component {
         &self,
         config: &Config,
     ) -> Result<helixlauncher_meta::component::Component, ComponentMetaRetrievalError> {
-        HelixLauncherMeta::new(config)
+        MetaClient::new(config)
             .get_component_meta(&self.id, &self.version)
             .await
     }

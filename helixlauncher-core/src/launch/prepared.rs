@@ -15,7 +15,6 @@ use crate::{
     auth::account::Account,
     config::Config,
     fsutil::{check_path, copy_file},
-    meta::HelixLauncherMeta,
 };
 
 use super::{
@@ -311,20 +310,6 @@ pub async fn prepare_launch(
             .collect(),
         working_directory: game_dir,
     })
-}
-
-pub async fn version_exists(path: String, version: String, config: &Config) -> bool {
-    let mut found: bool = false;
-    for item in HelixLauncherMeta::new(config)
-        .get_component_index(&path)
-        .await
-        .expect("Error while checking if version exists")
-    {
-        if item.version == version {
-            found = true;
-        }
-    }
-    found
 }
 
 /*pub async fn mc_version_exists(version: String) -> bool {

@@ -1,19 +1,18 @@
 use std::io;
 
-use reqwest::Client;
 use thiserror::Error;
 
 use crate::config::Config;
 
-pub struct HelixLauncherMeta<'a> {
-    client: Client,
+pub struct MetaClient<'a> {
+    client: reqwest::Client,
     config: &'a Config,
 }
 
-impl<'a> HelixLauncherMeta<'a> {
-    pub fn new(config: &'a Config) -> HelixLauncherMeta<'a> {
-        HelixLauncherMeta {
-            client: Client::new(),
+impl<'a> MetaClient<'a> {
+    pub fn new(config: &'a Config) -> Self {
+        Self {
+            client: reqwest::Client::new(),
             config,
         }
     }
@@ -27,10 +26,8 @@ impl<'a> HelixLauncherMeta<'a> {
         let component_data_result = async {
             self.client
                 .get(format!(
-                    "{}{}/{}.json",
-                    self.config.get_meta_url(),
-                    component_id,
-                    component_version
+                    "{}{component_id}/{component_version}.json",
+                    self.config.get_meta_url()
                 ))
                 .send()
                 .await?
@@ -45,11 +42,20 @@ impl<'a> HelixLauncherMeta<'a> {
 
         tokio::fs::create_dir_all(&path).await?;
 
-        path.push(format!("{}.json", component_version));
+        path.push(format!("{component_version}.json"));
 
         let component_data = match component_data_result {
             Err(e) => match tokio::fs::read(path).await {
-                Err(_) => Err(e)?,
+                Err(_) => {
+                    if e.status() == Some(reqwest::StatusCode::NOT_FOUND) {
+                        return Err(ComponentMetaRetrievalError::VersionNotFound {
+                            id: component_id.to_string(),
+                            version: component_version.to_string(),
+                        });
+                    } else {
+                        return Err(e.into());
+                    }
+                }
                 Ok(r) => r,
             },
             Ok(r) => {
@@ -65,18 +71,37 @@ impl<'a> HelixLauncherMeta<'a> {
         &self,
         component_id: &str,
     ) -> Result<helixlauncher_meta::index::Index, ComponentMetaRetrievalError> {
-        Ok(self
+        let response = self
             .client
-            .get(format!(
-                "{}{}.json",
-                self.config.get_meta_url(),
-                component_id
-            ))
+            .get(format!("{}{component_id}.json", self.config.get_meta_url()))
             .send()
             .await?
-            .error_for_status()?
-            .json()
-            .await?)
+            .error_for_status();
+        let response = match response {
+            Ok(r) => r,
+            Err(e) => {
+                if e.status() == Some(reqwest::StatusCode::NOT_FOUND) {
+                    return Err(ComponentMetaRetrievalError::IndexNotFound {
+                        id: component_id.to_string(),
+                    });
+                } else {
+                    return Err(e.into());
+                }
+            }
+        };
+        Ok(response.json().await?)
+    }
+
+    pub async fn component_version_exists(
+        &self,
+        component_id: String,
+        component_version: String,
+    ) -> Result<bool, ComponentMetaRetrievalError> {
+        Ok(self
+            .get_component_index(&component_id)
+            .await?
+            .iter()
+            .any(|item| item.version == component_version))
     }
 }
 
@@ -88,4 +113,8 @@ pub enum ComponentMetaRetrievalError {
     ParseError(#[from] serde_json::Error),
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
+    #[error("Version {version} of component {id} not found")]
+    VersionNotFound { id: String, version: String },
+    #[error("Component {id} not found")]
+    IndexNotFound { id: String },
 }
