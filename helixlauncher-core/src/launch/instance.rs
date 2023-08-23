@@ -8,10 +8,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{
-    config::Config,
-    meta::{ComponentMetaRetrievalError, MetaClient},
-};
+use crate::meta::{ComponentMetaRetrievalError, MetaClient};
 
 #[derive(Error, Debug)]
 pub enum InstanceManagerError {
@@ -80,11 +77,11 @@ pub struct Component {
 }
 
 impl Component {
-    pub async fn into_meta(
+    pub async fn into_meta<'a>(
         &self,
-        config: &Config,
+        meta_client: &MetaClient<'a>,
     ) -> Result<helixlauncher_meta::component::Component, ComponentMetaRetrievalError> {
-        MetaClient::new(config)
+        meta_client
             .get_component_meta(&self.id, &self.version)
             .await
     }
