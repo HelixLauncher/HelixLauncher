@@ -1,5 +1,5 @@
 use helixlauncher_core::auth::account::AccountConfig;
-use helixlauncher_core::auth::DEFAULT_ACCOUNT_JSON;
+use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
     asset::merge_components,
@@ -8,8 +8,67 @@ use helixlauncher_core::launch::{
 };
 use qmetaobject::USER_ROLE;
 use qmetaobject::{prelude::*, QSingletonInit};
+use std::cell::RefCell;
 use std::collections::HashMap;
-use tokio::runtime::Runtime;
+use std::sync::{Arc, RwLock, Mutex};
+use std::time::Duration;
+use tokio::runtime::{self, Runtime};
+
+#[derive(Default, QObject)]
+pub struct SignInModel {
+    base: qt_base_class!(trait QObject),
+    get_message: qt_method!(fn(&self) -> QString),
+    //auth_callback: fn(&mut self),
+}
+
+impl SignInModel {
+
+    fn get_message(&mut self) -> QString {
+        let minecraft_authenticator: MinecraftAuthenticator =
+            MinecraftAuthenticator::new("1d644380-5a23-4a84-89c3-5d29615fbac2");
+        //let mut message = Arc::new(String::new());
+        let m = Arc::new(Mutex::new(String::new()));
+        let t = std::thread::spawn({
+            let m = Arc::clone(&m);
+            move || {
+                let rt = Runtime::new().unwrap();
+                rt.block_on(async {
+                    minecraft_authenticator.initial_auth(|code, uri, message| {
+                        println!("{code}, {uri}, {message}");
+                        let mut inner_m = m.lock().unwrap();
+                        *inner_m = message;
+                    }).await.unwrap();
+                
+                });
+                
+            }
+        });
+        //let ma = m.lock().unwrap();
+        //let message = ma.clone().to_string();
+        let rt = Runtime::new().unwrap();
+        loop {
+            rt.block_on(async {
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            });
+            println!("hello world");
+            if *m.lock().unwrap() != "".to_string() {
+                println!("a");
+                println!("test: {}", *m.lock().unwrap());
+                break
+            } else {
+                println!("{}", *m.lock().unwrap())
+            }
+        }
+        //t.join().unwrap();
+
+        //println!("{}", ); 
+
+        // <message as a string>.into()
+        let a = m.lock().unwrap();
+        let b = a.clone();
+        b.into()
+    }
+}
 
 #[derive(Default, QObject)]
 pub struct AccountsModel {
@@ -93,5 +152,9 @@ impl QAbstractListModel for AccountsModel {
 }
 
 impl QSingletonInit for AccountsModel {
+    fn init(&mut self) {}
+}
+
+impl QSingletonInit for SignInModel {
     fn init(&mut self) {}
 }

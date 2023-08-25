@@ -11,6 +11,11 @@ Kirigami.ScrollablePage {
     actions.main: Kirigami.Action {
         icon.name: "list-add"
         text: "Add Account"
+        onTriggered: applicationWindow().pageStack.pushDialogLayer("qrc:/qml/SignInPage.qml", {}, {
+            title: "Sign In to Minecraft",
+            width: Kirigami.Units.gridUnit * 45,
+            height: Kirigami.Units.gridUnit
+        })
     }
 
     Kirigami.CardsListView {

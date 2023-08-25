@@ -13,7 +13,7 @@ qrc!(register_resources,
         "NewInstancePage.qml",
         "InstancePage.qml",
         "AccountsPage.qml",
-        "AccountAddPage.qml"
+        "SignInPage.qml"
     },
 );
 
@@ -36,6 +36,13 @@ fn main() {
         1,
         0,
         cstr!("AccountsModel"),
+    );
+
+    qml_register_singleton_type::<accounts::SignInModel>(
+        cstr!("dev.helixlauncher.qml"),
+        1,
+        0,
+        cstr!("SignInModel"),
     );
 
     let mut engine = QmlEngine::new();
