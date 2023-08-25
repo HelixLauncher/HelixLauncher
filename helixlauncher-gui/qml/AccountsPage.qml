@@ -5,36 +5,19 @@ import org.kde.kirigami 2.13 as Kirigami
 import dev.helixlauncher.qml 1.0
 
 Kirigami.ScrollablePage {
-    title: "Instances"
+    id: acc_manager_root
+    title: "Account Manager"
 
     actions.main: Kirigami.Action {
         icon.name: "list-add"
-        text: "Add Instance"
-        onTriggered: applicationWindow().pageStack.pushDialogLayer("qrc:/qml/NewInstancePage.qml", {}, {
-            title: "New Instance",
-            width: Kirigami.Units.gridUnit * 20,
-            height: Kirigami.Units.gridUnit * 10
-        })
-    }
-    actions.right: Kirigami.Action {
-        icon.name: "system-users"
-        text: "Accounts"
-        onTriggered: applicationWindow().pageStack.pushDialogLayer("qrc:/qml/AccountsPage.qml", {}, {
-            title: "Account Manager",
-            width: Kirigami.Units.gridUnit * 40,
-            height: Kirigami.Units.gridUnit * 50
-        })
+        text: "Add Account"
     }
 
     Kirigami.CardsListView {
-        model: InstancesModel
+        model: AccountsModel
 
         delegate: Kirigami.AbstractCard {
             showClickFeedback: true
-
-            onClicked: {
-                applicationWindow().pageStack.push('qrc:/qml/InstancePage.qml', { name, index })
-            }
 
             contentItem: Item {
                 implicitHeight: Kirigami.Units.gridUnit * 2
@@ -50,26 +33,15 @@ Kirigami.ScrollablePage {
                     RowLayout {
                         Kirigami.Heading {
                             Layout.fillWidth: true
-
                             level: 1
                             type: Kirigami.Heading.Type.Primary
-                            text: name
+                            text: username
                             elide: Text.ElideRight
                             maximumLineCount: 1
                         }
 
                         RowLayout {
                             Layout.alignment: Qt.AlignRight
-
-                            Label {
-                                text: loader
-                                font: Kirigami.Theme.smallFont
-                            }
-
-                            Label {
-                                text: version
-                                font: Kirigami.Theme.smallFont
-                            }
                         }
                     }
 
@@ -80,16 +52,23 @@ Kirigami.ScrollablePage {
                         Label {
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignTop
-                            text: "Playtime unknown"
+                            text: "UUID: " + uuid
                             opacity: 0.6
                             font: Kirigami.Theme.smallFont
                             elide: Text.ElideRight
                         }
-
                         Button {
                             Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
-                            text: "Launch"
-                            onClicked: InstancesModel.launch(index)
+                            text: "Set Default"
+                            onClicked: AccountsModel.set_default(uuid)
+                        }
+                        Button {
+                            icon.name: "remove"
+                            Layout.alignment: Qt.AlignVCenter | Qt.AlignRight
+                            text: "Remove"
+                            onClicked: { 
+                                AccountsModel.remove(uuid)
+                            }
                         }
                     }
                 }

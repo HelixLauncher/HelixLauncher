@@ -1,3 +1,5 @@
+use helixlauncher_core::auth::DEFAULT_ACCOUNT_JSON;
+use helixlauncher_core::auth::account::{AccountConfig, Account};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
     asset::merge_components,
@@ -29,6 +31,15 @@ impl InstancesModel {
     fn launch(&self, item: usize) {
         std::thread::spawn(move || {
             let config = Config::new("dev.helixlauncher.HelixLauncher", "HelixLauncher").unwrap();
+            let base_path = config.get_base_path();
+            let account_config = AccountConfig::new(base_path.join(DEFAULT_ACCOUNT_JSON)).unwrap();
+            let accounts = account_config.clone().accounts;
+            let account: Option<&Account>;
+            let mut default = String::default();
+            if let Some(default_s) = account_config.default {
+                default = default_s
+            }
+            account = accounts.iter().find(|x| x.uuid == default);
             let mut instances = Instance::list_instances(config.get_instances_path()).unwrap();
             instances.sort_by(|x, y| x.path.cmp(&y.path));
 
@@ -41,7 +52,7 @@ impl InstancesModel {
                     .unwrap();
 
                 let prepared =
-                    prepare_launch(&config, instance, &components, LaunchOptions::default())
+                    prepare_launch(&config, instance, &components, LaunchOptions::default().account(account))
                         .await
                         .unwrap();
 
