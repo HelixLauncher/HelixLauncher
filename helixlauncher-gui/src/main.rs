@@ -3,9 +3,8 @@ use qmetaobject::qtquickcontrols2::QQuickStyle;
 use qmetaobject::{prelude::*, qml_register_singleton_type};
 use std::env;
 
+mod accounts;
 mod instances;
-mod accounts; 
-
 
 qrc!(register_resources,
     "qml" as "qml" {
@@ -17,7 +16,6 @@ qrc!(register_resources,
         "AccountAddPage.qml"
     },
 );
-
 
 fn main() {
     if env::var_os("QT_QUICK_CONTROLS_STYLE").is_none() {

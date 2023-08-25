@@ -1,5 +1,5 @@
+use helixlauncher_core::auth::account::{Account, AccountConfig};
 use helixlauncher_core::auth::DEFAULT_ACCOUNT_JSON;
-use helixlauncher_core::auth::account::{AccountConfig, Account};
 use helixlauncher_core::config::Config;
 use helixlauncher_core::launch::{
     asset::merge_components,
@@ -51,10 +51,14 @@ impl InstancesModel {
                     .await
                     .unwrap();
 
-                let prepared =
-                    prepare_launch(&config, instance, &components, LaunchOptions::default().account(account))
-                        .await
-                        .unwrap();
+                let prepared = prepare_launch(
+                    &config,
+                    instance,
+                    &components,
+                    LaunchOptions::default().account(account),
+                )
+                .await
+                .unwrap();
 
                 prepared.launch(true).await.unwrap();
             });
