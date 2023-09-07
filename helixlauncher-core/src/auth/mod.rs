@@ -54,16 +54,16 @@ impl MinecraftAuthenticator {
             .await?
             .json()
             .await?;
-    
+
         callback(
             code_response.user_code.clone(),
             code_response.verification_uri.clone(),
             code_response.message.clone(),
         );
-    
+
         loop {
             tokio::time::sleep(Duration::from_secs(code_response.interval as u64)).await;
-    
+
             let grant_response = self
                 .reqwest_client
                 .post("https://login.microsoftonline.com/consumers/oauth2/v2.0/token")
@@ -74,15 +74,15 @@ impl MinecraftAuthenticator {
                 ])
                 .send()
                 .await?;
-    
+
             return if grant_response.status() == StatusCode::OK {
                 let poll_success: GrantSuccessResponse = grant_response.json().await?;
-    
+
                 self.authenticate(poll_success.access_token, poll_success.refresh_token)
                     .await
             } else {
                 let poll_error: GrantFailureResponse = grant_response.json().await?;
-    
+
                 match poll_error.error.as_str() {
                     "authorization_pending" => continue,
                     "authorization_declined" => Err(AuthenticationError::OAuthDeclined),
@@ -92,7 +92,6 @@ impl MinecraftAuthenticator {
             };
         }
     }
-    
 
     pub async fn refresh(&self, account: Account) -> Result<Account, AuthenticationError> {
         let grant_response: GrantSuccessResponse = self

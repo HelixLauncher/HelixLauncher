@@ -10,7 +10,7 @@ use qmetaobject::USER_ROLE;
 use qmetaobject::{prelude::*, QSingletonInit};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 use tokio::runtime::{self, Runtime};
 
@@ -22,7 +22,6 @@ pub struct SignInModel {
 }
 
 impl SignInModel {
-
     fn get_message(&mut self) -> QString {
         let minecraft_authenticator: MinecraftAuthenticator =
             MinecraftAuthenticator::new("1d644380-5a23-4a84-89c3-5d29615fbac2");
@@ -33,14 +32,15 @@ impl SignInModel {
             move || {
                 let rt = Runtime::new().unwrap();
                 rt.block_on(async {
-                    minecraft_authenticator.initial_auth(|code, uri, message| {
-                        println!("{code}, {uri}, {message}");
-                        let mut inner_m = m.lock().unwrap();
-                        *inner_m = message;
-                    }).await.unwrap();
-                
+                    minecraft_authenticator
+                        .initial_auth(|code, uri, message| {
+                            println!("{code}, {uri}, {message}");
+                            let mut inner_m = m.lock().unwrap();
+                            *inner_m = message;
+                        })
+                        .await
+                        .unwrap();
                 });
-                
             }
         });
         //let ma = m.lock().unwrap();
@@ -54,14 +54,14 @@ impl SignInModel {
             if *m.lock().unwrap() != "".to_string() {
                 println!("a");
                 println!("test: {}", *m.lock().unwrap());
-                break
+                break;
             } else {
                 println!("{}", *m.lock().unwrap())
             }
         }
         //t.join().unwrap();
 
-        //println!("{}", ); 
+        //println!("{}", );
 
         // <message as a string>.into()
         let a = m.lock().unwrap();
