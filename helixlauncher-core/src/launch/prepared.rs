@@ -164,7 +164,7 @@ pub async fn prepare_launch(
     props.insert("user.name", username.as_str());
     props.insert("user.uuid", uuid.as_str());
     props.insert("user.token", token.as_str());
-    props.insert("user.type", "mojang");
+    props.insert("user.type", "msa");
     props.insert("instance.game_dir", game_dir.to_str().unwrap());
 
     if let Some(minecraft_version) = instance.get_component_version("net.minecraft") {
