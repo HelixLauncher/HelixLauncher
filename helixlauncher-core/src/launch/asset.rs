@@ -16,7 +16,7 @@ use serde::Deserialize;
 
 use lazy_static::lazy_static;
 
-use crate::config::Config;
+use crate::{config::Config, meta::MetaClient};
 
 use super::{
     download_file,
@@ -216,9 +216,10 @@ pub async fn merge_components(
     let mut assets = None;
     let mut main_class = None;
     let mut arguments = vec![];
+    let meta_client = MetaClient::new(config);
 
     for component in components {
-        let mut meta = component.into_meta(config).await?;
+        let mut meta = component.into_meta(&meta_client).await?;
         for trait_ in meta.traits {
             traits.insert(trait_);
         }

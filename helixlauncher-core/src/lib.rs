@@ -6,6 +6,7 @@ pub mod auth;
 pub mod config;
 mod fsutil;
 pub mod launch;
+pub mod meta;
 
 #[no_mangle]
 pub extern "C" fn test(i: std::ffi::c_int) -> std::ffi::c_int {

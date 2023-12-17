@@ -2,10 +2,7 @@ use std::{collections::HashMap, fs::File, io, path::PathBuf, process::Stdio};
 
 use anyhow::Result;
 use futures::stream::{self, StreamExt, TryStreamExt};
-use helixlauncher_meta::{
-    component::{self, Hash, MinecraftArgument},
-    index::Index,
-};
+use helixlauncher_meta::component::{self, Hash, MinecraftArgument};
 
 use lazy_static::lazy_static;
 use regex::{Captures, Regex};
@@ -25,8 +22,6 @@ use super::{
     asset::{Asset, AssetIndex},
     download_file, generate_classpath, instance, LaunchError,
 };
-
-const META: &str = "https://meta.helixlauncher.dev/";
 
 #[derive(Debug)]
 pub struct PreparedLaunch {
@@ -315,28 +310,6 @@ pub async fn prepare_launch(
             .collect(),
         working_directory: game_dir,
     })
-}
-
-pub async fn version_exists(path: String, version: String) -> bool {
-    let response = reqwest::get(format!("{META}{path}/index.json"))
-        .await
-        .expect("an error occurred while fetching data from meta");
-
-    let index: Index = serde_json::from_str(
-        response
-            .text()
-            .await
-            .expect("error while reading body")
-            .as_str(),
-    )
-    .expect("error while converting to json");
-    let mut found: bool = false;
-    for item in index {
-        if item.version == version {
-            found = true;
-        }
-    }
-    found
 }
 
 /*pub async fn mc_version_exists(version: String) -> bool {
