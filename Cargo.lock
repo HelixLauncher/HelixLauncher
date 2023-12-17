@@ -877,6 +877,7 @@ dependencies = [
  "futures",
  "helixlauncher-meta",
  "hex",
+ "indexmap 2.1.0",
  "lazy_static",
  "regex",
  "reqwest",

@@ -2,7 +2,7 @@ use std::io;
 
 use thiserror::Error;
 
-use crate::config::Config;
+use crate::config::{Config, self};
 
 pub struct MetaClient<'a> {
     client: reqwest::Client,
@@ -22,12 +22,19 @@ impl<'a> MetaClient<'a> {
         component_id: &str,
         component_version: &str,
     ) -> Result<helixlauncher_meta::component::Component, ComponentMetaRetrievalError> {
+        let config_meta = self.config.get_meta_url();
+        let meta_default = config::meta_url_default();
+        let url = if let Some(configured_url) = config_meta {
+            configured_url
+        } else {
+            meta_default.as_str()
+        };
         // TODO: better caching
         let component_data_result = async {
             self.client
                 .get(format!(
                     "{}{component_id}/{component_version}.json",
-                    self.config.get_meta_url()
+                    url
                 ))
                 .send()
                 .await?
@@ -71,11 +78,18 @@ impl<'a> MetaClient<'a> {
         &self,
         component_id: &str,
     ) -> Result<helixlauncher_meta::index::Index, ComponentMetaRetrievalError> {
+        let config_meta = self.config.get_meta_url();
+        let meta_default = config::meta_url_default();
+        let url = if let Some(configured_url) = config_meta {
+            configured_url
+        } else {
+            meta_default.as_str()
+        };
         let response = self
             .client
             .get(format!(
                 "{}{component_id}/index.json",
-                self.config.get_meta_url()
+                url
             ))
             .send()
             .await?

@@ -30,9 +30,7 @@ pub struct Config {
     libraries_dir: PathBuf,
     #[serde(default = "assets_default")]
     assets_dir: PathBuf,
-
-    #[serde(default = "meta_url_default")]
-    meta_url: String,
+    meta_url: Option<String>,
 }
 
 fn instances_default() -> PathBuf {
@@ -47,7 +45,7 @@ fn assets_default() -> PathBuf {
     PathBuf::from("assets")
 }
 
-fn meta_url_default() -> String {
+pub(crate) fn meta_url_default() -> String {
     String::from(META)
 }
 
@@ -111,7 +109,7 @@ impl Config {
             instances_dir: PathBuf::from("instances"),
             libraries_dir: PathBuf::from("libraries"),
             assets_dir: PathBuf::from("assets"),
-            meta_url: meta_url_default(),
+            meta_url: None,
         }
     }
 
@@ -131,8 +129,8 @@ impl Config {
         self.base_path.join(&self.assets_dir)
     }
 
-    pub fn get_meta_url(&self) -> &str {
-        &self.meta_url
+    pub fn get_meta_url(&self) -> Option<&str> {
+        self.meta_url.as_deref()
     }
 }
 
