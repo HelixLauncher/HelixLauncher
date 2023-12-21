@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    asset::{MergedComponents, self, Native},
+    asset::MergedComponents,
     asset::{Asset, AssetIndex},
     download_file, generate_classpath, instance, LaunchError,
 };
@@ -170,7 +170,7 @@ pub async fn prepare_launch(
         props.insert("launch.world", world);
     }
 
-    let paths: HashMap<&helixlauncher_meta::util::GradleSpecifier, PathBuf> = components.get_all(config, instance).await?;
+    let paths = components.get_all(config, instance).await?;
 
     let game_jar = components.get_jar(&paths, &game_dir)?;
 
@@ -260,7 +260,32 @@ pub async fn prepare_launch(
     }
 
     for native in &components.natives {
-        process_zip(natives_path.clone(), native, &paths)?;
+        let file_path = &paths[&native.name];
+        let mut zip = zip::ZipArchive::new(File::open(file_path)?)?;
+        for i in 0..zip.len() {
+            // TODO: are ZIP bombs an issue here? if this code gets invoked, code from the
+            // instance and components is about to get executed anyways
+            let mut entry = zip.by_index(i)?;
+            if !entry.is_file() {
+                continue;
+            }
+            let name = entry.name().to_string(); // need to copy, otherwise entry is immutably
+                                                 // borrowed, preventing the read below
+            if native
+                .exclusions
+                .iter()
+                .any(|exclusion| name.starts_with(exclusion))
+            {
+                continue;
+            }
+            if !check_path(&name) {
+                return Err(LaunchError::InvalidFilename { name })?;
+            }
+            let path = natives_path.join(name);
+            fs::create_dir_all(path.parent().unwrap()).await?; // unwrap is safe here, at minimum
+                                                               // there will be the natives folder
+            io::copy(&mut entry, &mut File::create(path)?)?;
+        }
     }
 
     lazy_static! {
@@ -298,34 +323,3 @@ pub async fn prepare_launch(
     }
     found
 }*/
-
-fn process_zip(natives_path: PathBuf, native: &Native, paths: &HashMap<&helixlauncher_meta::util::GradleSpecifier, PathBuf>) -> Result<(), anyhow::Error> {
-    let file_path = &paths[&native.name];
-        let mut zip = zip::ZipArchive::new(File::open(file_path)?)?;
-        for i in 0..zip.len() {
-            // TODO: are ZIP bombs an issue here? if this code gets invoked, code from the
-            // instance and components is about to get executed anyways
-            let mut entry = zip.by_index(i)?;
-            if !entry.is_file() {
-                continue;
-            }
-            let name = entry.name().to_string(); // need to copy, otherwise entry is immutably
-                                                 // borrowed, preventing the read below
-            if native
-                .exclusions
-                .iter()
-                .any(|exclusion| name.starts_with(exclusion))
-            {
-                continue;
-            }
-            if !check_path(&name) {
-                return Err(LaunchError::InvalidFilename { name })?;
-            }
-            let path = natives_path.join(name);
-            std::fs::create_dir_all(path.parent().unwrap())?;
-            //fs::create_dir_all(path.parent().unwrap()).await?; // unwrap is safe here, at minimum
-                                                               // there will be the natives folder
-            io::copy(&mut entry, &mut File::create(path)?)?;
-        }
-        Ok(())
-}
