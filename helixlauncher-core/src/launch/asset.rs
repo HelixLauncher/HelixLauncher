@@ -108,7 +108,7 @@ impl MergedComponents {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Native {
     pub name: GradleSpecifier,
     pub exclusions: Vec<String>,
