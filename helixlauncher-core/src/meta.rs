@@ -32,7 +32,7 @@ impl<'a> MetaClient<'a> {
         // TODO: better caching
         let component_data_result = async {
             self.client
-                .get(format!("{}{component_id}/{component_version}.json", url))
+                .get(format!("{url}{component_id}/{component_version}.json"))
                 .send()
                 .await?
                 .error_for_status()?
@@ -84,7 +84,7 @@ impl<'a> MetaClient<'a> {
         };
         let response = self
             .client
-            .get(format!("{}{component_id}/index.json", url))
+            .get(format!("{url}{component_id}/index.json"))
             .send()
             .await?
             .error_for_status();
@@ -109,7 +109,7 @@ impl<'a> MetaClient<'a> {
         component_version: &str,
     ) -> Result<bool, ComponentMetaRetrievalError> {
         Ok(self
-            .get_component_index(&component_id)
+            .get_component_index(component_id)
             .await?
             .iter()
             .any(|item| item.version == component_version))

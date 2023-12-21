@@ -225,7 +225,7 @@ async fn add_account_cmd(config: &Config) -> Result<()> {
         .find(|it| it.uuid == account.uuid);
     match stored_account {
         None => {
-            if account_config.accounts.len() == 0 {
+            if account_config.accounts.is_empty() {
                 account_config.default = Some(account.uuid.clone())
             }
             account_config.accounts.push(account);

@@ -151,7 +151,7 @@ impl Artifact {
                         name.artifact,
                         name.version,
                         if let Some(ref classifier) = &name.classifier {
-                            format!("-{}", classifier)
+                            format!("-{classifier}")
                         } else {
                             String::new()
                         },

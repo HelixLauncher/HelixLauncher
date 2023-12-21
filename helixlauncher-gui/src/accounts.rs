@@ -1,18 +1,12 @@
 use helixlauncher_core::auth::account::AccountConfig;
 use helixlauncher_core::auth::{MinecraftAuthenticator, DEFAULT_ACCOUNT_JSON};
 use helixlauncher_core::config::Config;
-use helixlauncher_core::launch::{
-    asset::merge_components,
-    instance::{Instance, InstanceLaunchConfig, Modloader},
-    prepared::{prepare_launch, LaunchOptions},
-};
 use qmetaobject::USER_ROLE;
 use qmetaobject::{prelude::*, QSingletonInit};
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tokio::runtime::{self, Runtime};
+use tokio::runtime::Runtime;
 
 #[derive(Default, QObject)]
 pub struct SignInModel {
@@ -92,8 +86,6 @@ impl AccountsModel {
                 account_config.default = None
             }
             account_config.save().unwrap()
-        } else {
-            ()
         }
     }
 

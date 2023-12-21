@@ -60,7 +60,7 @@ async fn download_file(
 
     fs::create_dir_all(path.parent().unwrap()).await?;
 
-    println!("downloading: {}", url);
+    println!("downloading: {url}");
 
     let data = client
         .get(url)
@@ -90,7 +90,7 @@ async fn download_file(
     })
     .await??;
 
-    println!("download finished: {}", url);
+    println!("download finished: {url}");
 
     Ok(())
 }

@@ -68,7 +68,7 @@ impl LaunchOptions<'_> {
         Self { world, ..self }
     }
 
-    pub fn account<'a>(self, account: Option<&'a Account>) -> LaunchOptions<'a> {
+    pub fn account(self, account: Option<&Account>) -> LaunchOptions<'_> {
         LaunchOptions { account, ..self }
     }
 
@@ -105,7 +105,7 @@ pub async fn prepare_launch(
         .launch
         .javapath
         .as_ref()
-        .map_or("java", |s| &s)
+        .map_or("java", |s| s)
         .to_string(); // TODO
     let game_dir = instance.get_game_dir();
     let natives_path = instance.path.join("natives");
@@ -310,7 +310,7 @@ pub async fn prepare_launch(
             .map(|arg| {
                 VAR_PATTERN
                     .replace_all(arg, |captures: &Captures<'_>| {
-                        println!("{:?}", captures);
+                        println!("{captures:?}");
                         props[captures.get(1).unwrap().as_str()]
                     })
                     .into_owned()

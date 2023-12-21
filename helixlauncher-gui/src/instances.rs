@@ -34,12 +34,12 @@ impl InstancesModel {
             let base_path = config.get_base_path();
             let account_config = AccountConfig::new(base_path.join(DEFAULT_ACCOUNT_JSON)).unwrap();
             let accounts = account_config.clone().accounts;
-            let account: Option<&Account>;
+
             let mut default = String::default();
             if let Some(default_s) = account_config.default {
                 default = default_s
             }
-            account = accounts.iter().find(|x| x.uuid == default);
+            let account: Option<&Account> = accounts.iter().find(|x| x.uuid == default);
             let mut instances = Instance::list_instances(config.get_instances_path()).unwrap();
             instances.sort_by(|x, y| x.path.cmp(&y.path));
 
