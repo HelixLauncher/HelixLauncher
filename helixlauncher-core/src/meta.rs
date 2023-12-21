@@ -2,7 +2,7 @@ use std::io;
 
 use thiserror::Error;
 
-use crate::config::{Config, self};
+use crate::config::{self, Config};
 
 pub struct MetaClient<'a> {
     client: reqwest::Client,
@@ -32,10 +32,7 @@ impl<'a> MetaClient<'a> {
         // TODO: better caching
         let component_data_result = async {
             self.client
-                .get(format!(
-                    "{}{component_id}/{component_version}.json",
-                    url
-                ))
+                .get(format!("{}{component_id}/{component_version}.json", url))
                 .send()
                 .await?
                 .error_for_status()?
@@ -87,10 +84,7 @@ impl<'a> MetaClient<'a> {
         };
         let response = self
             .client
-            .get(format!(
-                "{}{component_id}/index.json",
-                url
-            ))
+            .get(format!("{}{component_id}/index.json", url))
             .send()
             .await?
             .error_for_status();

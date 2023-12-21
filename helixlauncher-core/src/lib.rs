@@ -1,5 +1,6 @@
 #![deny(rust_2018_idioms)]
 #![deny(unstable_features)]
+#![warn(clippy::uninlined_format_args)]
 
 pub mod addon;
 pub mod auth;
