@@ -139,8 +139,8 @@ fn main() {
             args = args.option(arg);
         }
         let vm = jni::JavaVM::with_libjvm(args.build().unwrap(), || Ok(jli_path)).unwrap();
-        let env = vm.attach_current_thread().unwrap();
-        todo!();
+        vm.attach_current_thread::<_, (), jni::errors::Error>(|env| todo!())
+            .unwrap();
         /*let jni_create_java_vm: libloading::Symbol<
             unsafe extern "system" fn(
                 vm: *mut *const JavaVM,

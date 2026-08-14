@@ -56,7 +56,7 @@ fn search_java_dirs(result: &mut HashSet<PathBuf>) -> Result<(), SearchError> {
     cfg_if! {
         if #[cfg(windows)] {
         } else if #[cfg(unix)] {
-            #[cfg(target_os = "osx")] {
+            #[cfg(target_os = "macos")] {
             }
             search_java_dir(result, "/usr/lib/jvm")?;
         } else {
